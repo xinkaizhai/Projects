@@ -14,11 +14,23 @@ from datetime import datetime
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 FEED = "UsMortgageBN"
-DATES = [
-    "202410", "202411", "202412",
-    "202501", "202502", "202503", "202504", "202505", "202506",
-    "202507", "202508", "202509", "202510",
-]  # must have 13 periods
+DATE_START = "202410"
+DATE_END   = "202510"
+
+def _gen_dates(start: str, end: str) -> list[str]:
+    """Generate YYYYMM strings from start to end inclusive."""
+    from datetime import date
+    y, m = int(start[:4]), int(start[4:])
+    ey, em = int(end[:4]), int(end[4:])
+    dates = []
+    while (y, m) <= (ey, em):
+        dates.append(f"{y}{m:02d}")
+        m += 1
+        if m > 12:
+            m, y = 1, y + 1
+    return dates
+
+DATES = _gen_dates(DATE_START, DATE_END)  # must have 13 periods
 TODAY = datetime(2025, 10, 31)  # last day of the latest backtesting month
 FEEDCODE = "bnmg"
 
