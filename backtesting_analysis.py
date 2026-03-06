@@ -19,15 +19,9 @@ import numpy as np
 # ── Configuration ─────────────────────────────────────────────────────────────
 FEED = "UsMortgageBN"
 
-PRED_FILE = (
-    "C:/Version 6/v6.43f/Backtesting/Mortgage/"
-    "Backtesting_Outputs_UsMortgageBN_202406ME_v643f_remastered.csv"
-)
-ACTUAL_FILE = (
-    "C:/1_Monthly Backtesting/2025/202511ME/Mortgage/"
-    "Backtesting_Import_UsMortgageBN_202410_new.csv"
-)
-OUT_DIR = "C:/Version 6/v6.43f/"
+PRED_FILE = r"C:\Version 6\v6.43f\Backtesting\Mortgage\Backtesting_Outputs_UsMortgageBN_202406ME_v643f_remastered.csv"
+ACTUAL_FILE = r"C:\1_Monthly Backtesting\2025\202511ME\Mortgage\Backtesting_Import_UsMortgageBN_202410_new.csv"
+OUT_DIR = r"C:\Version 6\v6.43f" + "\\"
 
 # ── Load data ─────────────────────────────────────────────────────────────────
 predsmm_file = pd.read_csv(PRED_FILE)

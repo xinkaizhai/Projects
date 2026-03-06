@@ -22,10 +22,10 @@ DATES = [
 TODAY = datetime(2025, 10, 31)  # last day of the latest backtesting month
 FEEDCODE = "bnmg"
 
-ALMX_DIR  = "C:/1_Monthly Backtesting/MBT/almxclean/"
-SQL_DIR   = "C:/1_Monthly Backtesting/MBT/sqldata/"
-OUT_DIR   = "C:/1_Monthly Backtesting/2025/202511ME/Mortgage/"
-COLLATMAP = "C:/1_Monthly Backtesting/MBT/CollatIdMapping.csv"
+ALMX_DIR  = r"C:\1_Monthly Backtesting\MBT\almxclean" + "\\"
+SQL_DIR   = r"C:\1_Monthly Backtesting\MBT\sqldata" + "\\"
+OUT_DIR   = r"C:\1_Monthly Backtesting\2025\202511ME\Mortgage" + "\\"
+COLLATMAP = r"C:\1_Monthly Backtesting\MBT\CollatIdMapping.csv"
 
 N = len(DATES)  # 13
 
