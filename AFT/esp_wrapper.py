@@ -1222,6 +1222,10 @@ class AFTModel:
             ctypes.c_char_p,  # szUSStateAbbrev
         ])
 
+        b(esp, "isNonTrivialOfEspPrepaymentScoreStruct", ctypes.c_int, [
+            ctypes.POINTER(EspPrepaymentScoreStruct),
+        ])
+
     # ── Internal helpers ──────────────────────────────────────────────────
 
     def _holder(self, thread_key: str):
@@ -1806,6 +1810,76 @@ class AFTModel:
         desc.pOptionaInputToCFGenerator = ctypes.cast(
             ctypes.pointer(oitcfg), ctypes.c_void_p)
         return oitcfg
+
+    # ── Scoring ───────────────────────────────────────────────────────────
+
+    def calc_loan_score(
+        self,
+        agency_name: bytes = b"",
+        orig_term_months: int = 360,
+        amort_period_months: int = 0,
+        age_months: int = 0,
+        wam_months: int = 0,
+        gross_wac_pct: float = 0.0,
+        net_coupon_pct: float = 0.0,
+        loan_level: Optional[dict] = None,
+        loan_info: Optional[dict] = None,
+        arm_desc: Optional[dict] = None,
+    ) -> Optional[dict]:
+        """
+        Compute prepayment scores via EspCalcLoanScore_G (prepayScore.dll).
+
+        Builds a descriptor from the given loan attributes, calls the
+        scoring-only API, and returns the computed scores as a dict —
+        or None if the loan type has no score file coverage.
+
+        The returned dict can be passed directly as ``input_scores`` to
+        calc_prepay_and_default_mthread so that scores are pre-filled in
+        pEspPrepaymentScoreStruct at call time and appear in the DLL log.
+
+        Example two-step flow::
+
+            scores = model.calc_loan_score(
+                agency_name=b"FNMA", orig_term_months=360, age_months=36,
+                loan_level={...}, loan_info={...})
+
+            if scores:
+                smm, defaults, _ = model.calc_prepay_and_default_mthread(
+                    ..., input_scores=scores)
+        """
+        amort_period_months = amort_period_months or orig_term_months
+        wam_months          = wam_months or (orig_term_months - age_months)
+
+        desc = self._make_desc(
+            agency_name, orig_term_months, amort_period_months,
+            age_months, wam_months, gross_wac_pct, net_coupon_pct)
+
+        # Pre-allocate score struct — EspCalcLoanScore_G writes into it
+        sc = EspPrepaymentScoreStruct()
+        desc.pEspPrepaymentScoreStruct = ctypes.cast(
+            ctypes.pointer(sc), ctypes.c_void_p)
+
+        ll                             = self._attach_loan_level(desc, loan_level)
+        li, adit                       = self._attach_loan_info(desc, loan_info)
+        arm_s, addl_arm_s, arm_wac_arr = self._attach_arm_desc(desc, arm_desc, wam_months)
+
+        err_buf = ctypes.create_string_buffer(200)
+        rc = self._score.EspCalcLoanScore_G(
+            ctypes.byref(desc),
+            self._data_dir,
+            self._data_dir,
+            err_buf,
+        )
+        if rc != 0:
+            raise RuntimeError(
+                f"EspCalcLoanScore_G failed (rc={rc}): {err_buf.value.decode()}")
+
+        # isNonTrivialOfEspPrepaymentScoreStruct returns 0 if scores are
+        # trivial (neutral/500) meaning no score file coverage for this loan type
+        if not self._esp.isNonTrivialOfEspPrepaymentScoreStruct(ctypes.byref(sc)):
+            return None
+
+        return sc.to_dict()
 
     # ── Modern multi-thread prepayment ────────────────────────────────────
 
