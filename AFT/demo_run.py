@@ -220,3 +220,82 @@ smm_arm, defaults_arm, _ = model.calc_prepay_and_default_mthread(
     input_scores = scores_arm,   # None-safe: wrapper skips if None
 )
 print(f"ARM SMM[0:6] : {[round(v, 6) for v in smm_arm[:6]]}")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Example 5 — FRM with fine_tune overrides
+#
+# fine_tune keys map to EspPrepayFineTuneStruct fields (see esp_wrapper.py).
+# Multipliers default to 1.0 (neutral); flags and additive shifts default to 0.
+# Only supply the keys you want to override.
+#
+# Key reference:
+#   Multipliers (1.0 = neutral, 0.0 = fully off):
+#     "ht_mult"               → htMultiplier
+#     "rf_mult"               → rfMultiplier
+#     "age_mult"              → ageMultiplier
+#     "burn_mult1/2"          → burnMultiplier1/2
+#     "hpa_rf_mult"           → dHpaRfMultiplier
+#     "hpa_ht_mult"           → dHpaHtMultiplier
+#     "curr_ltv_eff_mult"     → dCurrLtvEffMultiplier
+#     "curr_ltv_eff_ht_mult"  → dCurrLtvEffHtMultiplier
+#     "drawrate_mult"         → dDrawrateMultiplier
+#     "lifeevent_mult"        → dLifeventMultiplier
+#     "cur_pop1_to_pop2"      → curPop1ToPop2Shift  (multiplicative pop shift)
+#     "cur_pop2_to_pop3"      → curPop2ToPop3Shift
+#   Additive shifts (0 = off):
+#     "elbow_shift"           → elbowShiftForRefiMortgageRateInPercent
+#     "refi_lag"              → refiLagInMonth
+#     "additive_pop1_to_pop2" → additivePop1ToPop2Shift
+#     "additive_pop2_to_pop3" → additivePop2ToPop3Shift
+#   Flags (0/1):
+#     "apply_pop_shift_from"  → applyPopShiftFromWhatDateFlag
+#     "use_additive_pop_shift"→ useMultiplicativeOrAdditivePopShiftFlag
+#     "turn_off_short_term"   → turnOffShortTermMultiplicativeAdjustments
+#     "addl_sprd_on_off"      → iAddlSprdOnOff (-1 to disable)
+#   Advanced (nested EspAdvancedPrepayFineTuningStruct):
+#     "refi_age_mult_change"  → dRefiAgeMultiplierChange
+#     "mtg_rate_type"         → nEspPrepayMtgRateType
+# ─────────────────────────────────────────────────────────────────────────────
+smm_ft, defaults_ft, _ = model.calc_prepay_and_default_mthread(
+    agency_name      = b"FNMA",
+    orig_term_months = 360,
+    age_months       = 36,
+    wam_months       = N,
+    gross_wac_pct    = 7.25,
+    net_coupon_pct   = 6.75,
+    settle_date      = 202503,
+    mtg_rate_30yr    = mtg30,
+    mtg_rate_15yr    = mtg15,
+    mtg_rate_7yr     = mtg7,
+    mtg_rate_5yr     = mtg5,
+    tnote_10yr       = t10,
+    tnote_5yr        = t5,
+    proj_hpi           = proj_hpi,
+    hpi_start_yyyymm   = 0,
+    proj_unemp         = proj_unemp,
+    unemp_start_yyyymm = 202503,
+    default_dials = {
+        "orig_ltv":    80.0,
+        "cur_adj_ltv": 76.0,
+    },
+    fine_tune = {
+        # -- Multipliers --
+        "ht_mult":              1.2,    # boost housing-turnover component 20%
+        "rf_mult":              0.9,    # reduce refinancing component 10%
+        "hpa_rf_mult":          1.1,    # HPA effect on refi slightly elevated
+        "curr_ltv_eff_mult":    1.0,    # current-LTV effect: neutral
+
+        # -- Additive shifts --
+        "elbow_shift":          0.25,   # shift refi elbow up 25 bps
+
+        # -- Population shift flags --
+        "apply_pop_shift_from": 1,      # applyPopShiftFromWhatDateFlag = 1
+        "cur_pop1_to_pop2":     1.05,   # multiplicative pop-1→pop-2 shift
+        "cur_pop2_to_pop3":     0.95,   # multiplicative pop-2→pop-3 shift
+    },
+)
+print("\n=== Example 5: FRM with fine_tune overrides ===")
+print(f"SMM[0:6]     : {[round(v, 6) for v in smm_ft[:6]]}")
+print(f"CPR[0:6]     : {[round((1-(1-v)**12)*100, 4) for v in smm_ft[:6]]}")
+# Compare against base (Example 1) to see the fine_tune impact
+print(f"ΔSMM vs base : {[round(smm_ft[i]-smm[i], 6) for i in range(6)]}")
