@@ -54,7 +54,7 @@ smm, defaults, scores = model.calc_prepay_and_default_mthread(
     },
     loan_level = {
         "loan_size_k":   400.0,
-        "ltv":           80.0,
+        "ltv":           0.80,    # decimal (0.80 = 80%)
         "full_doc_ratio": 1.0,
         "single_family":  1.0,
         "primary_resid":  1.0,
@@ -120,7 +120,7 @@ scores_pre = model.calc_loan_score(
     net_coupon_pct   = 6.75,
     loan_level = {
         "loan_size_k":   400.0,
-        "ltv":           80.0,
+        "ltv":           0.80,    # decimal (0.80 = 80%)
         "single_family":  1.0,
         "primary_resid":  1.0,
     },
@@ -172,7 +172,7 @@ scores_arm = model.calc_loan_score(
     wam_months       = N,
     gross_wac_pct    = 6.50,
     net_coupon_pct   = 6.00,
-    loan_level = {"loan_size_k": 400.0, "ltv": 80.0, "single_family": 1.0},
+    loan_level = {"loan_size_k": 400.0, "ltv": 0.80, "single_family": 1.0},
     loan_info  = {"orig_ltv": 0.80, "fico": 740.0, "state": "CA",
                   "product_code": "ARM", "occupancy": "P"},
     arm_desc   = {"index_type": 2, "gross_wac_at_origin": 6.50,
@@ -202,7 +202,7 @@ smm_arm, defaults_arm, _ = model.calc_prepay_and_default_mthread(
     proj_unemp         = proj_unemp,
     unemp_start_yyyymm = 202503,
     default_dials = {"orig_ltv": 80.0, "cur_adj_ltv": 78.0},
-    loan_level    = {"loan_size_k": 400.0, "ltv": 80.0, "single_family": 1.0},
+    loan_level    = {"loan_size_k": 400.0, "ltv": 0.80, "single_family": 1.0},
     loan_info     = {"orig_ltv": 0.80, "fico": 740.0, "state": "CA",
                      "product_code": "ARM", "occupancy": "P"},
     arm_desc = {
