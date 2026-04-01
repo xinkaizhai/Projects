@@ -1226,6 +1226,10 @@ class AFTModel:
             ctypes.POINTER(EspPrepaymentScoreStruct),
         ])
 
+        b(esp, "EspPrep_initEspPrepayLoanLevelDescStructToDefault", None, [
+            ctypes.POINTER(EspPrepayLoanLevelDescStruct),
+        ])
+
     # ── Internal helpers ──────────────────────────────────────────────────
 
     def _holder(self, thread_key: str):
@@ -1417,8 +1421,8 @@ class AFTModel:
         desc.pEspDefaultModelInput = ctypes.cast(ctypes.pointer(dmi), ctypes.c_void_p)
         return dmi, hpi_arr, dials
 
-    @staticmethod
     def _attach_loan_level(
+        self,
         desc,
         loan_level: Optional[dict],
     ):
@@ -1450,6 +1454,8 @@ class AFTModel:
         if loan_level is None:
             return None
         ll = EspPrepayLoanLevelDescStruct()
+        # initialise to DLL defaults so has-loan-level-data-flag is recognised as 1
+        self._esp.EspPrep_initEspPrepayLoanLevelDescStructToDefault(ctypes.byref(ll))
         g = loan_level.get
         ll.dLoanSize          = g("loan_size_k",    0.0)
         ll.dEquityLtv         = g("ltv",            0.0)
