@@ -62,13 +62,12 @@ from esp_wrapper import AFTModel
 #   AFT DLL dir   : espmodel.dll + prepayScore.dll
 #   AFT data dir  : model parameter files + score files
 #   Intex DLL dir : intex.dll / icmo32.dll  (Intex CMO methods only)
-#   Intex data    : CDI folder (deal structure) + CDU folder (collateral/history)
+#   Intex data    : single folder containing both CDI and CDU data
 
 DLL_DIR       = r"C:\AFT\WIN64bit_6.43-BUILDAUTO_20250602_90009_USE_ORIG_V6_OFFSET_vs2019"
 DATA_DIR      = r"C:\AFT\data"       # AFT model param files and score files
 INTEX_DLL_DIR = r"C:\intex\dll"      # Intex DLL folder (intex.dll / icmo32.dll)
-INTEX_CDI     = rb"C:\intex\cdi"     # Intex CDI folder (deal structure)
-INTEX_CDU     = rb"C:\intex\cdu"     # Intex CDU folder (collateral/history updates)
+INTEX_DATA    = rb"C:\intex\data"    # Intex data folder (CDI + CDU, same location)
 
 # intex_dll_dir is optional — omit or pass None for standalone (non-Intex) runs
 model = AFTModel(DLL_DIR, DATA_DIR, intex_dll_dir=INTEX_DLL_DIR)
@@ -390,8 +389,7 @@ if defaults_arm:
 #
 # Inputs:
 #   cusip         : 9-char CUSIP of the CMO tranche
-#   intex_cdi_dir : Intex CDI folder (deal structure)
-#   intex_cdu_dir : Intex CDU folder (collateral/history updates)
+#   intex_cdi_dir / intex_cdu_dir : Intex data folder (CDI + CDU, same path)
 #   settle_date   : YYYYMM — converted internally to YYYYMMDD (day=1)
 #   market rates  : same vectors as standalone runs
 #   proj_hpi      : optional HPA override; omit to use AFT internal projection
@@ -399,8 +397,8 @@ if defaults_arm:
 # ─────────────────────────────────────────────────────────────────────────────
 smm_cmo, defaults_cmo = model.calc_prepay_from_cusip(
     cusip         = b"3128M5GE0",   # replace with actual CMO tranche CUSIP
-    intex_cdi_dir = INTEX_CDI,
-    intex_cdu_dir = INTEX_CDU,
+    intex_cdi_dir = INTEX_DATA,
+    intex_cdu_dir = INTEX_DATA,
     settle_date   = 202503,
     mtg_rate_30yr = mtg30,
     mtg_rate_15yr = mtg15,
@@ -428,7 +426,7 @@ if defaults_cmo:
 # results = []
 # for c in collaterals:
 #     smm_c, _ = model.calc_prepay_from_cusip(
-#         cusip=c["cusip"], intex_cdi_dir=INTEX_CDI, intex_cdu_dir=INTEX_CDU,
+#         cusip=c["cusip"], intex_cdi_dir=INTEX_DATA, intex_cdu_dir=INTEX_DATA,
 #         settle_date=202503, mtg_rate_30yr=mtg30, tnote_10yr=t10, tnote_5yr=t5)
 #     results.append((smm_c, c["balance"]))
 # total_bal = sum(b for _, b in results)
