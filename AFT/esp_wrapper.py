@@ -2185,8 +2185,8 @@ class AFTModel:
             AFT resolves this to deal name + tranche via the Intex data folder.
         intex_data_dir : bytes
             Path to the Intex data root folder.  Must contain subfolders:
-              cdi\  — deal structure files
-              cdu\  — collateral/historical update files
+              cmo_cdi\  — deal structure files
+              cmo_cdu\  — collateral/historical update files
             e.g. rb"C:\\intex\\data"
             Passed to AFT as "cdi_path cdu_path" (space-separated) per the
             loadEspMBSCalcInputStructFromCmoVendor API for Intex.
@@ -2209,10 +2209,10 @@ class AFTModel:
         # loadEspMBSCalcInputStructFromCmoVendor expects YYYYMMDD
         settle_yyyymmdd = settle_date * 100 + 1
         # Intex requires "cdi_path cdu_path" as a single space-separated string
-        # cdi\ and cdu\ are subfolders under intex_data_dir
+        # cmo_cdi\ and cmo_cdu\ are subfolders under intex_data_dir
         sep = b"\\" if b"\\" in intex_data_dir else b"/"
-        cmo_data_dir = (intex_data_dir + sep + b"cdi" + b" " +
-                        intex_data_dir + sep + b"cdu")
+        cmo_data_dir = (intex_data_dir + sep + b"cmo_cdi" + b" " +
+                        intex_data_dir + sep + b"cmo_cdu")
 
         err_buf = ctypes.create_string_buffer(200)
         mbs_ptr = self._esp.loadEspMBSCalcInputStructFromCmoVendor(

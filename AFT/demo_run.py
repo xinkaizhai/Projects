@@ -389,7 +389,7 @@ if defaults_arm:
 #
 # Inputs:
 #   cusip         : 9-char CUSIP of the CMO tranche
-#   intex_data_dir : Intex data root (must contain cdi\ and cdu\ subfolders)
+#   intex_data_dir : Intex data root (must contain cmo_cdi\ and cmo_cdu\ subfolders)
 #   settle_date   : YYYYMM — converted internally to YYYYMMDD (day=1)
 #   market rates  : same vectors as standalone runs
 #   proj_hpi      : optional HPA override; omit to use AFT internal projection
