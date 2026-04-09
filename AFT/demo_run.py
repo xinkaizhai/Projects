@@ -370,6 +370,20 @@ if defaults_arm:
     print(f"ARM default[0]: {defaults_arm[0]}")
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Debug — locate loadEspMBSCalcInputStructFromCmoVendor across DLLs
+# Run this block first to confirm which DLL exports the function.
+import ctypes as _ct
+for _name, _path in [("espmodel.dll",  DLL_DIR + r"\espmodel.dll"),
+                      ("cmosub64.dll", INTEX_DLL_DIR + r"\cmosub64.dll")]:
+    try:
+        _dll = _ct.CDLL(_path)
+        _dll.loadEspMBSCalcInputStructFromCmoVendor
+        print(f"loadEspMBSCalcInputStructFromCmoVendor  →  FOUND in {_name}")
+    except AttributeError:
+        print(f"loadEspMBSCalcInputStructFromCmoVendor  →  not in {_name}")
+    except OSError as e:
+        print(f"{_name}: failed to load — {e}")
+# ─────────────────────────────────────────────────────────────────────────────
 # Example 5 — CMO tranche via Intex (Method 1: CUSIP-based)
 #
 # AFT queries Intex to load all collateral attributes automatically:
