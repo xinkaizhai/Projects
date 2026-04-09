@@ -359,3 +359,71 @@ print(f"ARM SMM[0:6] : {[round(v, 6) for v in smm_arm[:6]]}")
 print(f"ARM CPR[0:6] : {[round((1-(1-v)**12)*100, 4) for v in smm_arm[:6]]}")
 if defaults_arm:
     print(f"ARM default[0]: {defaults_arm[0]}")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Example 5 — CMO tranche via Intex (Method 1: CUSIP-based)
+#
+# AFT queries Intex to load all collateral attributes automatically:
+#   agency name, WAC, WAM, age, ARM flag, deal name, tranche name.
+# No need to supply loan_level, loan_info, default_dials, or arm_desc —
+# all collateral indicatives come from Intex CDI/CDU files.
+#
+# Architecture:
+#   loadEspMBSCalcInputStructFromCmoVendor (AFT) → Intex CDI/CDU lookup
+#       → EspMBSCalcInputStruct populated (deal name, desc, WAC, WAM, ...)
+#           → EspPrep_PrepayAndDefaultModelMThread (AFT prepay model)
+#               → SMM + default rates for the tranche's collateral
+#
+# Note: returns one SMM vector for the collateral backing this tranche.
+# For a multi-collateral deal, call once per collateral CUSIP and
+# balance-weight the resulting SMM vectors externally.
+#
+# Inputs:
+#   cusip         : 9-char CUSIP of the CMO tranche
+#   intex_cdi_dir : Intex CDI folder (deal structure)
+#   intex_cdu_dir : Intex CDU folder (collateral/history updates)
+#   settle_date   : YYYYMM — converted internally to YYYYMMDD (day=1)
+#   market rates  : same vectors as standalone runs
+#   proj_hpi      : optional HPA override; omit to use AFT internal projection
+#   group_number  : Intex group number; -1 for most single-group deals
+# ─────────────────────────────────────────────────────────────────────────────
+INTEX_CDI = rb"C:\intex\cdi"   # edit to your Intex CDI path
+INTEX_CDU = rb"C:\intex\cdu"   # edit to your Intex CDU path
+
+smm_cmo, defaults_cmo = model.calc_prepay_from_cusip(
+    cusip         = b"3128M5GE0",   # replace with actual CMO tranche CUSIP
+    intex_cdi_dir = INTEX_CDI,
+    intex_cdu_dir = INTEX_CDU,
+    settle_date   = 202503,
+    mtg_rate_30yr = mtg30,
+    mtg_rate_15yr = mtg15,
+    mtg_rate_7yr  = mtg7,
+    mtg_rate_5yr  = mtg5,
+    tnote_10yr    = t10,
+    tnote_5yr     = t5,
+    # proj_hpi not set → AFT uses internal HPA from deal parameter files
+    # group_number not set → defaults to -1 (not applicable)
+)
+print("\n=== Example 5: CMO tranche via Intex (CUSIP) ===")
+print(f"CMO SMM[0:6]    : {[round(v, 6) for v in smm_cmo[:6]]}")
+print(f"CMO CPR[0:6]    : {[round((1-(1-v)**12)*100, 4) for v in smm_cmo[:6]]}")
+if defaults_cmo:
+    print(f"CMO default[0]  : {defaults_cmo[0]}")
+
+# ── Multi-collateral aggregation (balance-weighted) ───────────────────────────
+# If a deal has multiple collateral CUSIPs, run once per CUSIP and aggregate:
+#
+# collaterals = [
+#     {"cusip": b"3128M5GE0", "balance": 50_000_000},
+#     {"cusip": b"3128M5GE1", "balance": 30_000_000},
+#     {"cusip": b"3128M5GE2", "balance": 20_000_000},
+# ]
+# results = []
+# for c in collaterals:
+#     smm_c, _ = model.calc_prepay_from_cusip(
+#         cusip=c["cusip"], intex_cdi_dir=INTEX_CDI, intex_cdu_dir=INTEX_CDU,
+#         settle_date=202503, mtg_rate_30yr=mtg30, tnote_10yr=t10, tnote_5yr=t5)
+#     results.append((smm_c, c["balance"]))
+# total_bal = sum(b for _, b in results)
+# n_months  = len(results[0][0])
+# agg_smm   = [sum(s[t] * b / total_bal for s, b in results) for t in range(n_months)]
