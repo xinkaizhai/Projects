@@ -58,11 +58,17 @@ score_switch  (0=both on, 1=prepay off, 2=both off, 3=default off)
 from esp_wrapper import AFTModel
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
+# Four path categories:
+#   AFT DLL dir   : espmodel.dll + prepayScore.dll
+#   AFT data dir  : model parameter files + score files
+#   Intex DLL dir : intex.dll / icmo32.dll  (Intex CMO methods only)
+#   Intex data    : CDI folder (deal structure) + CDU folder (collateral/history)
+
 DLL_DIR       = r"C:\AFT\WIN64bit_6.43-BUILDAUTO_20250602_90009_USE_ORIG_V6_OFFSET_vs2019"
-DATA_DIR      = r"C:\AFT\data"       # model param files and score files
-INTEX_DLL_DIR = r"C:\intex\dll"      # folder containing intex.dll / icmo32.dll
-                                      # only needed for Intex CMO methods
-                                      # set to None if not using Intex
+DATA_DIR      = r"C:\AFT\data"       # AFT model param files and score files
+INTEX_DLL_DIR = r"C:\intex\dll"      # Intex DLL folder (intex.dll / icmo32.dll)
+INTEX_CDI     = rb"C:\intex\cdi"     # Intex CDI folder (deal structure)
+INTEX_CDU     = rb"C:\intex\cdu"     # Intex CDU folder (collateral/history updates)
 
 # intex_dll_dir is optional — omit or pass None for standalone (non-Intex) runs
 model = AFTModel(DLL_DIR, DATA_DIR, intex_dll_dir=INTEX_DLL_DIR)
@@ -391,9 +397,6 @@ if defaults_arm:
 #   proj_hpi      : optional HPA override; omit to use AFT internal projection
 #   group_number  : Intex group number; -1 for most single-group deals
 # ─────────────────────────────────────────────────────────────────────────────
-INTEX_CDI = rb"C:\intex\cdi"   # edit to your Intex CDI path
-INTEX_CDU = rb"C:\intex\cdu"   # edit to your Intex CDU path
-
 smm_cmo, defaults_cmo = model.calc_prepay_from_cusip(
     cusip         = b"3128M5GE0",   # replace with actual CMO tranche CUSIP
     intex_cdi_dir = INTEX_CDI,
