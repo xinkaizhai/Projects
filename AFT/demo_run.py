@@ -62,12 +62,12 @@ from esp_wrapper import AFTModel
 #   AFT DLL dir   : espmodel.dll + prepayScore.dll
 #   AFT data dir  : model parameter files + score files
 #   Intex DLL dir : intex.dll / icmo32.dll  (Intex CMO methods only)
-#   Intex data    : single folder containing both CDI and CDU data
+#   Intex data    : CMO data folder passed directly to Intex
 
 DLL_DIR       = r"C:\AFT\WIN64bit_6.43-BUILDAUTO_20250602_90009_USE_ORIG_V6_OFFSET_vs2019"
 DATA_DIR      = r"C:\AFT\data"       # AFT model param files and score files
 INTEX_DLL_DIR = r"C:\intex\dll"      # Intex DLL folder (intex.dll / icmo32.dll)
-INTEX_DATA    = rb"C:\intex\data"    # Intex data root (contains cdi\ and cdu\ subfolders)
+CMO_DATA_DIR  = rb"C:\intex\data"    # Intex CMO data folder
 
 # intex_dll_dir is optional — omit or pass None for standalone (non-Intex) runs
 model = AFTModel(DLL_DIR, DATA_DIR, intex_dll_dir=INTEX_DLL_DIR)
@@ -375,10 +375,10 @@ if defaults_arm:
 # AFT queries Intex to load all collateral attributes automatically:
 #   agency name, WAC, WAM, age, ARM flag, deal name, tranche name.
 # No need to supply loan_level, loan_info, default_dials, or arm_desc —
-# all collateral indicatives come from Intex CDI/CDU files.
+# all collateral indicatives come from Intex.
 #
 # Architecture:
-#   loadEspMBSCalcInputStructFromCmoVendor (AFT) → Intex CDI/CDU lookup
+#   loadEspMBSCalcInputStructFromCmoVendor (AFT) → Intex lookup via CUSIP
 #       → EspMBSCalcInputStruct populated (deal name, desc, WAC, WAM, ...)
 #           → EspPrep_PrepayAndDefaultModelMThread (AFT prepay model)
 #               → SMM + default rates for the tranche's collateral
@@ -388,17 +388,17 @@ if defaults_arm:
 # balance-weight the resulting SMM vectors externally.
 #
 # Inputs:
-#   cusip         : 9-char CUSIP of the CMO tranche
-#   intex_data_dir : Intex data root (must contain cmo_cdi\ and cmo_cdu\ subfolders)
-#   settle_date   : YYYYMM — converted internally to YYYYMMDD (day=1)
-#   market rates  : same vectors as standalone runs
-#   proj_hpi      : optional HPA override; omit to use AFT internal projection
-#   group_number  : Intex group number; -1 for most single-group deals
+#   cusip        : 9-char CUSIP of the CMO tranche
+#   cmo_data_dir : Intex CMO data folder (passed directly to Intex)
+#   settle_date  : YYYYMM — converted internally to YYYYMMDD (day=1)
+#   market rates : same vectors as standalone runs
+#   proj_hpi     : optional HPA override; omit to use AFT internal projection
+#   group_number : Intex group number; -1 for most single-group deals
 # ─────────────────────────────────────────────────────────────────────────────
 smm_cmo, defaults_cmo = model.calc_prepay_from_cusip(
-    cusip          = b"3128M5GE0",   # replace with actual CMO tranche CUSIP
-    intex_data_dir = INTEX_DATA,     # wrapper appends \cdi and \cdu automatically
-    settle_date   = 202503,
+    cusip        = b"3128M5GE0",   # replace with actual CMO tranche CUSIP
+    cmo_data_dir = CMO_DATA_DIR,   # Intex CMO data folder
+    settle_date  = 202503,
     mtg_rate_30yr = mtg30,
     mtg_rate_15yr = mtg15,
     mtg_rate_7yr  = mtg7,
@@ -425,7 +425,7 @@ if defaults_cmo:
 # results = []
 # for c in collaterals:
 #     smm_c, _ = model.calc_prepay_from_cusip(
-#         cusip=c["cusip"], intex_data_dir=INTEX_DATA,
+#         cusip=c["cusip"], cmo_data_dir=CMO_DATA_DIR,
 #         settle_date=202503, mtg_rate_30yr=mtg30, tnote_10yr=t10, tnote_5yr=t5)
 #     results.append((smm_c, c["balance"]))
 # total_bal = sum(b for _, b in results)
