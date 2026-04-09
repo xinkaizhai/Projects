@@ -58,10 +58,14 @@ score_switch  (0=both on, 1=prepay off, 2=both off, 3=default off)
 from esp_wrapper import AFTModel
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-DLL_DIR  = r"C:\AFT\WIN64bit_6.43-BUILDAUTO_20250602_90009_USE_ORIG_V6_OFFSET_vs2019"
-DATA_DIR = r"C:\AFT\data"   # folder containing model param files and score files
+DLL_DIR       = r"C:\AFT\WIN64bit_6.43-BUILDAUTO_20250602_90009_USE_ORIG_V6_OFFSET_vs2019"
+DATA_DIR      = r"C:\AFT\data"       # model param files and score files
+INTEX_DLL_DIR = r"C:\intex\dll"      # folder containing intex.dll / icmo32.dll
+                                      # only needed for Intex CMO methods
+                                      # set to None if not using Intex
 
-model = AFTModel(DLL_DIR, DATA_DIR)
+# intex_dll_dir is optional — omit or pass None for standalone (non-Intex) runs
+model = AFTModel(DLL_DIR, DATA_DIR, intex_dll_dir=INTEX_DLL_DIR)
 
 # ── Market rates (flat — replace with real scenario vectors) ──────────────────
 N     = 324     # wam_months

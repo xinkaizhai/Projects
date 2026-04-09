@@ -1051,10 +1051,20 @@ class AFTModel:
     data_dir : str
         Folder containing model parameter files and scoring data files.
         Used as both the prepay params path and the score input path in DLL calls.
+    intex_dll_dir : str, optional
+        Folder containing the Intex DLL (e.g. intex.dll / icmo32.dll).
+        Required for Intex-based CMO methods (calc_prepay_from_cusip,
+        calc_prepay_and_default_mthread_itx).  AFT loads the Intex DLL
+        internally via Windows DLL search — this directory must be on the
+        search path before calling those methods.
+        Intex data paths (CDI/CDU) are passed separately per call.
     """
 
-    def __init__(self, dll_dir: str, data_dir: str) -> None:
+    def __init__(self, dll_dir: str, data_dir: str,
+                 intex_dll_dir: Optional[str] = None) -> None:
         os.add_dll_directory(dll_dir)
+        if intex_dll_dir is not None:
+            os.add_dll_directory(intex_dll_dir)
         self._esp   = ctypes.CDLL(os.path.join(dll_dir, "espmodel.dll"))
         self._score = ctypes.CDLL(os.path.join(dll_dir, "prepayScore.dll"))
         self._data_dir: bytes = (
