@@ -370,19 +370,21 @@ if defaults_arm:
     print(f"ARM default[0]: {defaults_arm[0]}")
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Debug — locate loadEspMBSCalcInputStructFromCmoVendor across DLLs
-# Run this block first to confirm which DLL exports the function.
-import ctypes as _ct
-for _name, _path in [("espmodel.dll",  DLL_DIR + r"\espmodel.dll"),
-                      ("cmosub64.dll", INTEX_DLL_DIR + r"\cmosub64.dll")]:
-    try:
-        _dll = _ct.CDLL(_path)
-        _dll.loadEspMBSCalcInputStructFromCmoVendor
-        print(f"loadEspMBSCalcInputStructFromCmoVendor  →  FOUND in {_name}")
-    except AttributeError:
-        print(f"loadEspMBSCalcInputStructFromCmoVendor  →  not in {_name}")
-    except OSError as e:
-        print(f"{_name}: failed to load — {e}")
+# Debug — scan all DLLs in AFT and Intex folders for loadEspMBSCalcInputStructFromCmoVendor
+import ctypes as _ct, os as _os
+for _folder in [DLL_DIR, INTEX_DLL_DIR]:
+    for _f in _os.listdir(_folder):
+        if not _f.lower().endswith(".dll"):
+            continue
+        _path = _os.path.join(_folder, _f)
+        try:
+            _dll = _ct.CDLL(_path)
+            _dll.loadEspMBSCalcInputStructFromCmoVendor
+            print(f"FOUND in {_f}  ({_folder})")
+        except AttributeError:
+            print(f"not in {_f}")
+        except OSError as e:
+            print(f"{_f}: load failed — {e}")
 # ─────────────────────────────────────────────────────────────────────────────
 # Example 5 — CMO tranche via Intex (Method 1: CUSIP-based)
 #
