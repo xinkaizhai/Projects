@@ -2159,8 +2159,7 @@ class AFTModel:
     def calc_prepay_from_cusip(
         self,
         cusip: bytes,
-        intex_cdi_dir: bytes,
-        intex_cdu_dir: bytes,
+        intex_data_dir: bytes,
         settle_date: int,
         mrate_date: int = 0,
         mtg_rate_30yr: Optional[List[float]] = None,
@@ -2184,12 +2183,11 @@ class AFTModel:
         cusip : bytes
             9-character CUSIP of the CMO tranche (e.g. b"3128M5GE0").
             AFT resolves this to deal name + tranche via the Intex data folder.
-        intex_cdi_dir : bytes
-            Path to the Intex CDI folder (deal structure data).
-            e.g. rb"C:\\intex\\cdi"
-        intex_cdu_dir : bytes
-            Path to the Intex CDU folder (collateral/historical update data).
-            e.g. rb"C:\\intex\\cdu"
+        intex_data_dir : bytes
+            Path to the Intex data root folder.  Must contain subfolders:
+              cdi\  — deal structure files
+              cdu\  — collateral/historical update files
+            e.g. rb"C:\\intex\\data"
             Passed to AFT as "cdi_path cdu_path" (space-separated) per the
             loadEspMBSCalcInputStructFromCmoVendor API for Intex.
         settle_date : int
@@ -2211,7 +2209,10 @@ class AFTModel:
         # loadEspMBSCalcInputStructFromCmoVendor expects YYYYMMDD
         settle_yyyymmdd = settle_date * 100 + 1
         # Intex requires "cdi_path cdu_path" as a single space-separated string
-        cmo_data_dir = intex_cdi_dir + b" " + intex_cdu_dir
+        # cdi\ and cdu\ are subfolders under intex_data_dir
+        sep = b"\\" if b"\\" in intex_data_dir else b"/"
+        cmo_data_dir = (intex_data_dir + sep + b"cdi" + b" " +
+                        intex_data_dir + sep + b"cdu")
 
         err_buf = ctypes.create_string_buffer(200)
         mbs_ptr = self._esp.loadEspMBSCalcInputStructFromCmoVendor(

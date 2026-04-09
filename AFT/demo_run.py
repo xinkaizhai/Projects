@@ -67,7 +67,7 @@ from esp_wrapper import AFTModel
 DLL_DIR       = r"C:\AFT\WIN64bit_6.43-BUILDAUTO_20250602_90009_USE_ORIG_V6_OFFSET_vs2019"
 DATA_DIR      = r"C:\AFT\data"       # AFT model param files and score files
 INTEX_DLL_DIR = r"C:\intex\dll"      # Intex DLL folder (intex.dll / icmo32.dll)
-INTEX_DATA    = rb"C:\intex\data"    # Intex data folder (CDI + CDU, same location)
+INTEX_DATA    = rb"C:\intex\data"    # Intex data root (contains cdi\ and cdu\ subfolders)
 
 # intex_dll_dir is optional — omit or pass None for standalone (non-Intex) runs
 model = AFTModel(DLL_DIR, DATA_DIR, intex_dll_dir=INTEX_DLL_DIR)
@@ -389,16 +389,15 @@ if defaults_arm:
 #
 # Inputs:
 #   cusip         : 9-char CUSIP of the CMO tranche
-#   intex_cdi_dir / intex_cdu_dir : Intex data folder (CDI + CDU, same path)
+#   intex_data_dir : Intex data root (must contain cdi\ and cdu\ subfolders)
 #   settle_date   : YYYYMM — converted internally to YYYYMMDD (day=1)
 #   market rates  : same vectors as standalone runs
 #   proj_hpi      : optional HPA override; omit to use AFT internal projection
 #   group_number  : Intex group number; -1 for most single-group deals
 # ─────────────────────────────────────────────────────────────────────────────
 smm_cmo, defaults_cmo = model.calc_prepay_from_cusip(
-    cusip         = b"3128M5GE0",   # replace with actual CMO tranche CUSIP
-    intex_cdi_dir = INTEX_DATA,
-    intex_cdu_dir = INTEX_DATA,
+    cusip          = b"3128M5GE0",   # replace with actual CMO tranche CUSIP
+    intex_data_dir = INTEX_DATA,     # wrapper appends \cdi and \cdu automatically
     settle_date   = 202503,
     mtg_rate_30yr = mtg30,
     mtg_rate_15yr = mtg15,
@@ -426,7 +425,7 @@ if defaults_cmo:
 # results = []
 # for c in collaterals:
 #     smm_c, _ = model.calc_prepay_from_cusip(
-#         cusip=c["cusip"], intex_cdi_dir=INTEX_DATA, intex_cdu_dir=INTEX_DATA,
+#         cusip=c["cusip"], intex_data_dir=INTEX_DATA,
 #         settle_date=202503, mtg_rate_30yr=mtg30, tnote_10yr=t10, tnote_5yr=t5)
 #     results.append((smm_c, c["balance"]))
 # total_bal = sum(b for _, b in results)
