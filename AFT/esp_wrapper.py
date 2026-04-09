@@ -2212,6 +2212,14 @@ class AFTModel:
         # in practice both CDI and CDU point to the same folder
         cdi_cdu_dir = cmo_data_dir + b" " + cmo_data_dir
 
+        try:
+            _fn = self._esp.loadEspMBSCalcInputStructFromCmoVendor
+        except AttributeError:
+            raise RuntimeError(
+                "loadEspMBSCalcInputStructFromCmoVendor is not exported by this "
+                "build of espmodel.dll. An Intex-enabled build is required for "
+                "CMO/CUSIP methods.") from None
+
         err_buf = ctypes.create_string_buffer(200)
         mbs_ptr = self._esp.loadEspMBSCalcInputStructFromCmoVendor(
             b"INTEX",
