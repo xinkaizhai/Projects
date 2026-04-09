@@ -1065,6 +1065,8 @@ class AFTModel:
         os.add_dll_directory(dll_dir)
         if intex_dll_dir is not None:
             os.add_dll_directory(intex_dll_dir)
+            # Load cmosub64.dll explicitly so espmodel.dll can find Intex functions
+            ctypes.CDLL(os.path.join(intex_dll_dir, "cmosub64.dll"))
         self._esp   = ctypes.CDLL(os.path.join(dll_dir, "espmodel.dll"))
         self._score = ctypes.CDLL(os.path.join(dll_dir, "prepayScore.dll"))
         self._data_dir: bytes = (
@@ -2184,8 +2186,9 @@ class AFTModel:
             9-character CUSIP of the CMO tranche (e.g. b"3128M5GE0").
             AFT resolves this to deal name + tranche via the Intex data folder.
         cmo_data_dir : bytes
-            Path to the Intex CMO data folder passed directly to
-            loadEspMBSCalcInputStructFromCmoVendor.
+            Path to the Intex CMO data folder.  Passed to
+            loadEspMBSCalcInputStructFromCmoVendor as "cdi_path cdu_path"
+            (same folder repeated, as CDI and CDU share one location).
             e.g. rb"C:\\intex\\data"
         settle_date : int
             Settlement date in YyyyMm format (e.g. 202501).  Converted to
@@ -2205,11 +2208,14 @@ class AFTModel:
         mrate_date = mrate_date or settle_date
         # loadEspMBSCalcInputStructFromCmoVendor expects YYYYMMDD
         settle_yyyymmdd = settle_date * 100 + 1
+        # Intex requires "cdi_path cdu_path" as a single space-separated string;
+        # in practice both CDI and CDU point to the same folder
+        cdi_cdu_dir = cmo_data_dir + b" " + cmo_data_dir
 
         err_buf = ctypes.create_string_buffer(200)
         mbs_ptr = self._esp.loadEspMBSCalcInputStructFromCmoVendor(
             b"INTEX",
-            cmo_data_dir,
+            cdi_cdu_dir,
             cusip,
             ctypes.c_long(settle_yyyymmdd),
             None,   # vpMiscOptions — NULL for defaults
