@@ -73,11 +73,11 @@ def _ext_cur(table, col_name):
 
 # ── Load data ─────────────────────────────────────────────────────────────────
 tables = [
-    pd.read_csv(f"{ALMX_DIR}{FEED}-{d}-clean.csv")
+    pd.read_csv(f"{ALMX_DIR}{FEED}-{d}-clean.csv", low_memory=False)
     for d in DATES
 ]
 raws = [
-    pd.read_csv(f"{SQL_DIR}{FEEDCODE}-{d}.csv")
+    pd.read_csv(f"{SQL_DIR}{FEEDCODE}-{d}.csv", low_memory=False, encoding="utf-8-sig")
     for d in DATES
 ]
 
