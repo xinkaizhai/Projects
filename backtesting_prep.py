@@ -41,12 +41,6 @@ COLLATMAP = r"C:\1_Monthly Backtesting\MBT\CollatIdMapping.csv"
 
 N = len(DATES)  # 13
 
-# ── Diagnostic: print actual column names from first SQL file ─────────────────
-import sys
-_raws0 = pd.read_csv(f"{SQL_DIR}{FEEDCODE}-{DATES[0]}.csv", low_memory=False, encoding="utf-8-sig", nrows=0)
-print("SQL file columns:", _raws0.columns.tolist(), flush=True)
-sys.stdout.flush()
-
 # ── Helper functions ───────────────────────────────────────────────────────────
 def cpnfix(coupon):
     """Convert semi-annual compounded coupon to monthly/simple rate."""
@@ -74,7 +68,7 @@ def _ext_cur(table, col_name):
     """Return (Uniqueid, <col_name>) from a raw SQL table."""
     tmp = table.copy()
     tmp[col_name] = tmp["R_CurrentPayment"]
-    return tmp.rename(columns={"X_K_CertificateCode": "Uniqueid"})[["Uniqueid", col_name]]
+    return tmp.rename(columns={"_K_CertificateCode": "Uniqueid"})[["Uniqueid", col_name]]
 
 
 # ── Load data ─────────────────────────────────────────────────────────────────
@@ -89,7 +83,7 @@ raws = [
 
 # ── left_raw: static loan attributes from the first raw snapshot ──────────────
 RAW_RENAME = {
-    "X_K_CertificateCode": "Uniqueid",
+    "_K_CertificateCode":  "Uniqueid",
     "R_Coa":               "Coa",
     "R_ProductCode":       "ProductCode",
     "E_RiskProduct":       "RiskProduct",
@@ -122,7 +116,7 @@ LEFT_RAW_COLS = [
 ]
 left_raw = (
     raws[0]
-    .sort_values("X_K_CertificateCode")
+    .sort_values("_K_CertificateCode")
     .rename(columns=RAW_RENAME)[LEFT_RAW_COLS]
 )
 
