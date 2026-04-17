@@ -41,6 +41,12 @@ COLLATMAP = r"C:\1_Monthly Backtesting\MBT\CollatIdMapping.csv"
 
 N = len(DATES)  # 13
 
+# ── Diagnostic: print actual column names from first SQL file ─────────────────
+import sys
+_raws0 = pd.read_csv(f"{SQL_DIR}{FEEDCODE}-{DATES[0]}.csv", low_memory=False, encoding="utf-8-sig", nrows=0)
+print("SQL file columns:", _raws0.columns.tolist(), flush=True)
+sys.stdout.flush()
+
 # ── Helper functions ───────────────────────────────────────────────────────────
 def cpnfix(coupon):
     """Convert semi-annual compounded coupon to monthly/simple rate."""
