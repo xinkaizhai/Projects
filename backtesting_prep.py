@@ -57,7 +57,7 @@ def _ext_bal(table, col_name):
     """Return (Uniqueid, <col_name>) from a SQL table."""
     tmp = table.copy()
     tmp[col_name] = pd.to_numeric(
-        tmp["E_notional"].astype(str).str.replace(",", "", regex=False),
+        tmp["E_Notional"].astype(str).str.replace(",", "", regex=False),
         errors="coerce",
     )
     return tmp.rename(columns={"_K_CertificateCode": "Uniqueid"})[["Uniqueid", col_name]]
@@ -101,7 +101,7 @@ RAW_RENAME = {
     "R_InitialCap":        "First_Cap",
     "R_IndexName":         "IndexName",
     "R_OwnershipCode":     "Ownership",
-    "E_notional":          "Notional",
+    "E_Notional":          "Notional",
     "R_Coupon":            "Coupon",
 }
 LEFT_RAW_COLS = [
