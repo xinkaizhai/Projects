@@ -106,13 +106,14 @@ RAW_RENAME = {
     "R_InitialCap":        "First_Cap",
     "R_IndexName":         "IndexName",
     "R_OwnershipCode":     "Ownership",
+    "E_notional":          "Notional",
 }
 LEFT_RAW_COLS = [
     "Uniqueid", "Coa", "ProductCode", "RiskProduct", "LoanType",
     "IssueDt", "Maturity", "Cltrl_Id", "LoanToValu", "OrigAmount",
     "State", "OrigFico", "Iss_Coupon", "Lt_Cap", "Arm_Spd",
     "IdxSelDays", "Tsr_Period", "IndexCode", "Reset_Term", "Cap",
-    "First_Cap", "IndexName", "Ownership",
+    "First_Cap", "IndexName", "Ownership", "Notional",
 ]
 left_raw = (
     raws[0]
@@ -126,7 +127,7 @@ LEFT_TAB_COLS = [
     "IssueDt", "Maturity", "Cltrl_Id", "LoanToValu", "OrigAmount", "RAM",
     "State", "OrigFico", "Iss_Coupon", "Lt_Cap", "Arm_Spd",
     "IdxSelDays", "Tsr_Period", "IndexCode", "Reset_Term", "Cap",
-    "First_Cap", "IndexName", "Ownership",
+    "First_Cap", "IndexName", "Ownership", "Notional",
 ]
 left_tab = (
     tables[0]
@@ -234,7 +235,7 @@ EXCEL_COLS = (
      "IssueDt", "Maturity", "Cltrl_Id", "LoanToValu", "OrigAmount", "RAM",
      "State", "OrigFico", "Iss_Coupon", "Lt_Cap", "Arm_Spd",
      "IdxSelDays", "Tsr_Period", "Reset_Term", "Cap", "First_Cap",
-     "IndexName", "IndexCode", "Ownership"]
+     "IndexName", "IndexCode", "Ownership", "Notional"]
     + [f"custrt{i}"      for i in range(13)]
     + [f"curbookbal{i}"  for i in range(13)]
     + [f"d{i}"           for i in range(1, 13)]
@@ -269,7 +270,7 @@ IMPORT_COLS = (
      "ProductCode", "RiskProduct", "Cltrl_Id_2",
      "LoanToValu", "OrigAmount", "RAM", "State", "OrigFico",
      "Iss_Coupon", "Lt_Cap", "Arm_Spd", "IdxSelDays", "Tsr_Period",
-     "Reset_Term", "Cap", "First_Cap", "IndexName", "IndexCode"]
+     "Reset_Term", "Cap", "First_Cap", "IndexName", "IndexCode", "Notional"]
     + [f"custrt{i}"      for i in range(13)]
     + [f"curbookbal{i}"  for i in range(13)]
     + [f"d{i}"           for i in range(1, 13)]
