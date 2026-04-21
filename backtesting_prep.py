@@ -2,7 +2,7 @@
 backtesting_prep.py
 
 Python equivalent of the first R script:
-- Loads ALMx clean tables and Canoe SQL (enriched) tables for 13 periods
+- Loads Canoe SQL (enriched) tables for 13 periods
 - Builds customer-rate, book-balance, and current-payment panels
 - Computes scheduled balances, d-ratios, and unscheduled prepayments
 - Exports a full backtesting table and a slimmer import table
@@ -34,7 +34,6 @@ DATES = _gen_dates(DATE_START, DATE_END)  # must have 13 periods
 TODAY = datetime(2025, 10, 31)  # last day of the latest backtesting month
 FEEDCODE = "bnmg"
 
-ALMX_DIR  = r"C:\1_Monthly Backtesting\MBT\almxclean" + "\\"
 SQL_DIR   = r"C:\1_Monthly Backtesting\MBT\sqldata" + "\\"
 OUT_DIR   = r"C:\1_Monthly Backtesting\2025\202511ME\Mortgage" + "\\"
 COLLATMAP = r"C:\1_Monthly Backtesting\MBT\CollatIdMapping.csv"
@@ -48,20 +47,20 @@ def cpnfix(coupon):
 
 
 def _ext_cust(table, col_name):
-    """Return (Uniqueid, <col_name>) from an ALMx table."""
+    """Return (Uniqueid, <col_name>) from a SQL table."""
     tmp = table.copy()
-    tmp[col_name] = cpnfix(tmp["Coupon"].to_numpy(dtype=float))
-    return tmp.rename(columns={"AlternateUniqueId": "Uniqueid"})[["Uniqueid", col_name]]
+    tmp[col_name] = cpnfix(tmp["R_Coupon"].to_numpy(dtype=float))
+    return tmp.rename(columns={"_K_CertificateCode": "Uniqueid"})[["Uniqueid", col_name]]
 
 
 def _ext_bal(table, col_name):
-    """Return (Uniqueid, <col_name>) from an ALMx table."""
+    """Return (Uniqueid, <col_name>) from a SQL table."""
     tmp = table.copy()
     tmp[col_name] = pd.to_numeric(
-        tmp["Holdings"].astype(str).str.replace(",", "", regex=False),
+        tmp["E_notional"].astype(str).str.replace(",", "", regex=False),
         errors="coerce",
     )
-    return tmp.rename(columns={"AlternateUniqueId": "Uniqueid"})[["Uniqueid", col_name]]
+    return tmp.rename(columns={"_K_CertificateCode": "Uniqueid"})[["Uniqueid", col_name]]
 
 
 def _ext_cur(table, col_name):
@@ -72,10 +71,6 @@ def _ext_cur(table, col_name):
 
 
 # ── Load data ─────────────────────────────────────────────────────────────────
-tables = [
-    pd.read_csv(f"{ALMX_DIR}{FEED}-{d}-clean.csv", low_memory=False)
-    for d in DATES
-]
 raws = [
     pd.read_csv(f"{SQL_DIR}{FEEDCODE}-{d}.csv", low_memory=False, encoding="utf-8-sig")
     for d in DATES
@@ -107,6 +102,7 @@ RAW_RENAME = {
     "R_IndexName":         "IndexName",
     "R_OwnershipCode":     "Ownership",
     "E_notional":          "Notional",
+    "R_Coupon":            "Coupon",
 }
 LEFT_RAW_COLS = [
     "Uniqueid", "Coa", "ProductCode", "RiskProduct", "LoanType",
@@ -121,24 +117,19 @@ left_raw = (
     .rename(columns=RAW_RENAME)[LEFT_RAW_COLS]
 )
 
-# ── left_tab: join first ALMx table with left_raw ────────────────────────────
+# ── left_tab: static loan attributes from left_raw ───────────────────────────
 LEFT_TAB_COLS = [
     "Uniqueid", "Coa", "ProductCode", "LoanType", "RiskProduct",
-    "IssueDt", "Maturity", "Cltrl_Id", "LoanToValu", "OrigAmount", "RAM",
+    "IssueDt", "Maturity", "Cltrl_Id", "LoanToValu", "OrigAmount",
     "State", "OrigFico", "Iss_Coupon", "Lt_Cap", "Arm_Spd",
     "IdxSelDays", "Tsr_Period", "IndexCode", "Reset_Term", "Cap",
     "First_Cap", "IndexName", "Ownership", "Notional",
 ]
-left_tab = (
-    tables[0]
-    .sort_values("AlternateUniqueId")
-    .rename(columns={"AlternateUniqueId": "Uniqueid"})[["Uniqueid", "RAM"]]
-    .merge(left_raw, on="Uniqueid", how="inner")[LEFT_TAB_COLS]
-)
+left_tab = left_raw[LEFT_TAB_COLS].copy()
 
 # ── cust_tab: customer rates for all 13 periods ───────────────────────────────
-cust_tab = _ext_cust(tables[0], "custrt0")
-for i, t in enumerate(tables[1:], 1):
+cust_tab = _ext_cust(raws[0], "custrt0")
+for i, t in enumerate(raws[1:], 1):
     cust_tab = cust_tab.merge(_ext_cust(t, f"custrt{i}"), on="Uniqueid", how="left")
 
 # Forward-fill NaN values across periods, then fill any remaining with 0
@@ -148,8 +139,8 @@ for i in range(1, N):
 cust_tab[custrt_cols] = cust_tab[custrt_cols].fillna(0)
 
 # ── bal_tab: current book balances for all 13 periods ────────────────────────
-bal_tab = _ext_bal(tables[0], "curbookbal0")
-for i, t in enumerate(tables[1:], 1):
+bal_tab = _ext_bal(raws[0], "curbookbal0")
+for i, t in enumerate(raws[1:], 1):
     bal_tab = bal_tab.merge(_ext_bal(t, f"curbookbal{i}"), on="Uniqueid", how="left")
 
 bal_cols = [f"curbookbal{i}" for i in range(N)]
@@ -157,9 +148,9 @@ bal_tab[bal_cols] = bal_tab[bal_cols].fillna(0)
 
 # ── curpmt_tab: current payments for periods 0-11 (12 periods) ───────────────
 curpmt_tab = (
-    tables[0]
-    .sort_values("AlternateUniqueId")
-    .rename(columns={"AlternateUniqueId": "Uniqueid"})[["Uniqueid"]]
+    raws[0]
+    .sort_values("_K_CertificateCode")
+    .rename(columns={"_K_CertificateCode": "Uniqueid"})[["Uniqueid"]]
 )
 # raw0 through raw11 (note: no raw12 current payment — one fewer than balances)
 for i, r in enumerate(raws[:12]):
@@ -232,7 +223,7 @@ for i in range(1, 13):
 # ── excel_tab: full export selection ─────────────────────────────────────────
 EXCEL_COLS = (
     ["Uniqueid", "Coa", "ProductCode", "RiskProduct", "LoanType",
-     "IssueDt", "Maturity", "Cltrl_Id", "LoanToValu", "OrigAmount", "RAM",
+     "IssueDt", "Maturity", "Cltrl_Id", "LoanToValu", "OrigAmount",
      "State", "OrigFico", "Iss_Coupon", "Lt_Cap", "Arm_Spd",
      "IdxSelDays", "Tsr_Period", "Reset_Term", "Cap", "First_Cap",
      "IndexName", "IndexCode", "Ownership", "Notional"]
@@ -268,7 +259,7 @@ excel_tab.to_csv(
 IMPORT_COLS = (
     ["Uniqueid", "Cltrl_Group", "IssueDt", "Maturity",
      "ProductCode", "RiskProduct", "Cltrl_Id_2",
-     "LoanToValu", "OrigAmount", "RAM", "State", "OrigFico",
+     "LoanToValu", "OrigAmount", "State", "OrigFico",
      "Iss_Coupon", "Lt_Cap", "Arm_Spd", "IdxSelDays", "Tsr_Period",
      "Reset_Term", "Cap", "First_Cap", "IndexName", "IndexCode", "Notional"]
     + [f"custrt{i}"      for i in range(13)]
