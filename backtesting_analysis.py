@@ -19,6 +19,9 @@ import numpy as np
 # ── Configuration ─────────────────────────────────────────────────────────────
 FEED = "UsMortgageBN"
 
+# Output toggle: "actual", "predict", or "both"
+OUTPUT = "both"
+
 PRED_FILE = r"C:\Version 6\v6.43f\Backtesting\Mortgage\Backtesting_Outputs_UsMortgageBN_202406ME_v643f_remastered.csv"
 ACTUAL_FILE = r"C:\1_Monthly Backtesting\2025\202511ME\Mortgage\Backtesting_Import_UsMortgageBN_202410_new.csv"
 OUT_DIR = r"C:\Version 6\v6.43f" + "\\"
@@ -85,7 +88,12 @@ predicts = (
 )
 
 # ── Export ────────────────────────────────────────────────────────────────────
-actuals.to_csv(f"{OUT_DIR}USmortgageBN_Actual_Results.csv",  index=False)
-predicts.to_csv(f"{OUT_DIR}USmortgageBN_Predict_Results.csv", index=False)
+if OUTPUT in ("actual", "both"):
+    actuals.to_csv(f"{OUT_DIR}USmortgageBN_Actual_Results.csv", index=False)
+    print("Written: USmortgageBN_Actual_Results.csv")
+
+if OUTPUT in ("predict", "both"):
+    predicts.to_csv(f"{OUT_DIR}USmortgageBN_Predict_Results.csv", index=False)
+    print("Written: USmortgageBN_Predict_Results.csv")
 
 print("Done. Files written to", OUT_DIR)
