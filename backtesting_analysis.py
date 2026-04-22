@@ -22,15 +22,17 @@ FEED = "UsMortgageBN"
 # Output toggle: "actual", "predict", or "both"
 OUTPUT = "both"
 
-PRED_FILE = r"C:\Version 6\v6.43f\Backtesting\Mortgage\Backtesting_Outputs_UsMortgageBN_202406ME_v643f_remastered.csv"
+PRED_FILE   = r"C:\Version 6\v6.43f\Backtesting\Mortgage\Backtesting_Outputs_UsMortgageBN_202406ME_v643f_remastered.csv"
 ACTUAL_FILE = r"C:\1_Monthly Backtesting\2025\202511ME\Mortgage\Backtesting_Import_UsMortgageBN_202410_new.csv"
-OUT_DIR = r"C:\Version 6\v6.43f" + "\\"
+OUT_DIR     = r"C:\Version 6\v6.43f" + "\\"
 
 # ── Load data ─────────────────────────────────────────────────────────────────
-predsmm_file = pd.read_csv(PRED_FILE)
-actual_file  = pd.read_csv(ACTUAL_FILE)
+actual_file = pd.read_csv(ACTUAL_FILE)
 
-# ── Actuals CPR Summary ───────────────────────────────────────────────────────
+if OUTPUT in ("predict", "both"):
+    predsmm_file = pd.read_csv(PRED_FILE)
+
+# ── Shared aggregation spec ───────────────────────────────────────────────────
 AGG = {
     "n":        ("Uniqueid",      "count"),
     **{f"bal{i}":      (f"curbookbal{i}",  "sum") for i in range(13)},
@@ -38,54 +40,56 @@ AGG = {
     **{f"sbal{i}":     (f"schedBal{i}",    "sum") for i in range(1, 13)},
 }
 
-actuals = (
-    actual_file
-    .groupby(["Cltrl_Group", "Cltrl_Id_2"])
-    .agg(**{k: pd.NamedAgg(column=v[0], aggfunc=v[1]) for k, v in AGG.items()})
-    .reset_index()
-)
+# ── Actuals CPR Summary ───────────────────────────────────────────────────────
+if OUTPUT in ("actual", "both"):
+    actuals = (
+        actual_file
+        .groupby(["Cltrl_Group", "Cltrl_Id_2"])
+        .agg(**{k: pd.NamedAgg(column=v[0], aggfunc=v[1]) for k, v in AGG.items()})
+        .reset_index()
+    )
 
 # ── Predictions Aggregation ───────────────────────────────────────────────────
-PRED_COLS = (
-    ["Uniqueid", "Cltrl_Group", "Cltrl_Id_2", "curbookbal0"]
-    + [f"custrt{i}"  for i in range(13)]
-    + [f"curpmt{i}"  for i in range(12)]
-)
+if OUTPUT in ("predict", "both"):
+    PRED_COLS = (
+        ["Uniqueid", "Cltrl_Group", "Cltrl_Id_2", "curbookbal0"]
+        + [f"custrt{i}"  for i in range(13)]
+        + [f"curpmt{i}"  for i in range(12)]
+    )
 
-predsmm_calc = (
-    actual_file[PRED_COLS]
-    .merge(predsmm_file, on="Uniqueid", how="left")
-    .copy()
-)
+    predsmm_calc = (
+        actual_file[PRED_COLS]
+        .merge(predsmm_file, on="Uniqueid", how="left")
+        .copy()
+    )
 
-# Iteratively recompute balances using predicted SMM values.
-# Each period's curbookbal is overwritten so subsequent periods use it.
-for i in range(1, 13):
-    p = i - 1  # previous period index
+    # Iteratively recompute balances using predicted SMM values.
+    # Each period's curbookbal is overwritten so subsequent periods use it.
+    for i in range(1, 13):
+        p = i - 1  # previous period index
 
-    bal  = predsmm_calc[f"curbookbal{p}"].to_numpy(dtype=float)
-    rt   = predsmm_calc[f"custrt{p}"].to_numpy(dtype=float)
-    pmt  = predsmm_calc[f"curpmt{p}"].to_numpy(dtype=float)
-    smm  = predsmm_calc[f"SMM{i}"].to_numpy(dtype=float)
+        bal  = predsmm_calc[f"curbookbal{p}"].to_numpy(dtype=float)
+        rt   = predsmm_calc[f"custrt{p}"].to_numpy(dtype=float)
+        pmt  = predsmm_calc[f"curpmt{p}"].to_numpy(dtype=float)
+        smm  = predsmm_calc[f"SMM{i}"].to_numpy(dtype=float)
 
-    principal = pmt - bal * rt / 1200
-    sched_pmt = np.where(principal >= bal, bal, principal)
-    sched_bal = bal - sched_pmt
-    unsched   = np.minimum(sched_bal, bal * smm / 100)
-    new_bal   = sched_bal - unsched
+        principal = pmt - bal * rt / 1200
+        sched_pmt = np.where(principal >= bal, bal, principal)
+        sched_bal = bal - sched_pmt
+        unsched   = np.minimum(sched_bal, bal * smm / 100)
+        new_bal   = sched_bal - unsched
 
-    predsmm_calc[f"schedpmt{i}"]   = sched_pmt
-    predsmm_calc[f"schedBal{i}"]   = sched_bal
-    predsmm_calc[f"unschedPmt{i}"] = unsched
-    predsmm_calc[f"curbookbal{i}"] = new_bal  # overwrite for next period
+        predsmm_calc[f"schedpmt{i}"]   = sched_pmt
+        predsmm_calc[f"schedBal{i}"]   = sched_bal
+        predsmm_calc[f"unschedPmt{i}"] = unsched
+        predsmm_calc[f"curbookbal{i}"] = new_bal  # overwrite for next period
 
-# ── Summarise predictions ─────────────────────────────────────────────────────
-predicts = (
-    predsmm_calc
-    .groupby(["Cltrl_Group", "Cltrl_Id_2"])
-    .agg(**{k: pd.NamedAgg(column=v[0], aggfunc=v[1]) for k, v in AGG.items()})
-    .reset_index()
-)
+    predicts = (
+        predsmm_calc
+        .groupby(["Cltrl_Group", "Cltrl_Id_2"])
+        .agg(**{k: pd.NamedAgg(column=v[0], aggfunc=v[1]) for k, v in AGG.items()})
+        .reset_index()
+    )
 
 # ── Export ────────────────────────────────────────────────────────────────────
 if OUTPUT in ("actual", "both"):
