@@ -245,6 +245,10 @@ excel_tab = excel_tab.merge(collatbuckets, on="ProductCode", how="left")
 # Filter 2: Remove construction period loans (LoanType == 5).
 excel_tab = excel_tab[excel_tab["LoanType"] != 5].copy()
 
+# Filter 3: Remove Cash, UsNsFixedRateMortgage, UsNsAdjustableRateMortgage deals.
+EXCLUDE_RISK_PRODUCTS = {"Cash", "UsNsFixedRateMortgage", "UsNsAdjustableRateMortgage"}
+excel_tab = excel_tab[~excel_tab["RiskProduct"].isin(EXCLUDE_RISK_PRODUCTS)].copy()
+
 # Override collateral group for COA 30101
 excel_tab.loc[excel_tab["Coa"] == 30101, "Cltrl_Group"] = "HE"
 
