@@ -30,7 +30,7 @@ def _gen_dates(start: str, end: str) -> list[str]:
             m, y = 1, y + 1
     return dates
 
-DATES = _gen_dates(DATE_START, DATE_END)  # must have 13 periods
+DATES = _gen_dates(DATE_START, DATE_END)
 TODAY = datetime(2025, 10, 31)  # last day of the latest backtesting month
 FEEDCODE = "bnmg"
 
@@ -38,7 +38,7 @@ SQL_DIR   = r"C:\1_Monthly Backtesting\MBT\sqldata" + "\\"
 OUT_DIR   = r"C:\1_Monthly Backtesting\2025\202511ME\Mortgage" + "\\"
 COLLATMAP = r"C:\1_Monthly Backtesting\MBT\CollatIdMapping.csv"
 
-N = len(DATES)  # 13
+N = len(DATES)
 
 # ── Helper functions ───────────────────────────────────────────────────────────
 def cpnfix(coupon):
@@ -127,7 +127,7 @@ LEFT_TAB_COLS = [
 ]
 left_tab = left_raw[LEFT_TAB_COLS].copy()
 
-# ── cust_tab: customer rates for all 13 periods ───────────────────────────────
+# ── cust_tab: customer rates for all N periods ────────────────────────────────
 cust_tab = _ext_cust(raws[0], "custrt0")
 for i, t in enumerate(raws[1:], 1):
     cust_tab = cust_tab.merge(_ext_cust(t, f"custrt{i}"), on="Uniqueid", how="left")
@@ -146,18 +146,17 @@ for i, t in enumerate(raws[1:], 1):
 bal_cols = [f"curbookbal{i}" for i in range(N)]
 bal_tab[bal_cols] = bal_tab[bal_cols].fillna(0)
 
-# ── curpmt_tab: current payments for periods 0-11 (12 periods) ───────────────
+# ── curpmt_tab: current payments for periods 0 to N-2 (one fewer than balances)
 curpmt_tab = (
     raws[0]
     .sort_values("_K_CertificateCode")
     .rename(columns={"_K_CertificateCode": "Uniqueid"})[["Uniqueid"]]
 )
-# raw0 through raw11 (note: no raw12 current payment — one fewer than balances)
-for i, r in enumerate(raws[:12]):
+for i, r in enumerate(raws[:N-1]):
     curpmt_tab = curpmt_tab.merge(_ext_cur(r, f"curpmt{i}"), on="Uniqueid", how="left")
 
-curpmt_cols = [f"curpmt{i}" for i in range(12)]
-for i in range(1, 12):
+curpmt_cols = [f"curpmt{i}" for i in range(N-1)]
+for i in range(1, N-1):
     curpmt_tab[f"curpmt{i}"] = curpmt_tab[f"curpmt{i}"].fillna(curpmt_tab[f"curpmt{i-1}"])
 curpmt_tab[curpmt_cols] = curpmt_tab[curpmt_cols].fillna(0)
 
@@ -172,7 +171,7 @@ full_tab = (
 # ── Computed columns ──────────────────────────────────────────────────────────
 
 # schedpmt{i} and schedBal{i} — uses actual book balances each period
-for i in range(1, 13):
+for i in range(1, N):
     p = i - 1  # previous period index
     bal  = full_tab[f"curbookbal{p}"].to_numpy(dtype=float)
     rt   = full_tab[f"custrt{p}"].to_numpy(dtype=float)
@@ -183,7 +182,7 @@ for i in range(1, 13):
 
 # dpmt{i} and dBal{i} — chained from schedBal1 (no prepayment adjustments)
 # dBal1 ≡ schedBal1 (starting point for the chain)
-for i in range(2, 13):
+for i in range(2, N):
     p = i - 1
     prev_dbal = full_tab["schedBal1"].to_numpy(dtype=float) if i == 2 else full_tab[f"dBal{p}"].to_numpy(dtype=float)
     rt  = full_tab[f"custrt{p}"].to_numpy(dtype=float)
@@ -201,7 +200,7 @@ full_tab["d1"] = np.nan_to_num(d1, nan=0.0)
 
 prev_d    = full_tab["d1"].to_numpy()
 prev_dbal = sbal1
-for i in range(2, 13):
+for i in range(2, N):
     dbal_i = full_tab[f"dBal{i}"].to_numpy(dtype=float)
     with np.errstate(divide="ignore", invalid="ignore"):
         ratio = np.where(prev_dbal == 0, 0, dbal_i / prev_dbal)
@@ -211,7 +210,7 @@ for i in range(2, 13):
     prev_dbal = dbal_i
 
 # unschedPmt{i} — unscheduled prepayments
-for i in range(1, 13):
+for i in range(1, N):
     p = i - 1
     bal_prev = full_tab[f"curbookbal{p}"].to_numpy(dtype=float)
     bal_curr = full_tab[f"curbookbal{i}"].to_numpy(dtype=float)
@@ -227,12 +226,12 @@ EXCEL_COLS = (
      "State", "OrigFico", "Iss_Coupon", "Lt_Cap", "Arm_Spd",
      "IdxSelDays", "Tsr_Period", "Reset_Term", "Cap", "First_Cap",
      "IndexName", "IndexCode", "Ownership", "Notional"]
-    + [f"custrt{i}"      for i in range(13)]
-    + [f"curbookbal{i}"  for i in range(13)]
-    + [f"d{i}"           for i in range(1, 13)]
-    + [f"unschedPmt{i}"  for i in range(1, 13)]
-    + [f"schedBal{i}"    for i in range(1, 13)]
-    + [f"curpmt{i}"      for i in range(12)]
+    + [f"custrt{i}"      for i in range(N)]
+    + [f"curbookbal{i}"  for i in range(N)]
+    + [f"d{i}"           for i in range(1, N)]
+    + [f"unschedPmt{i}"  for i in range(1, N)]
+    + [f"schedBal{i}"    for i in range(1, N)]
+    + [f"curpmt{i}"      for i in range(N-1)]
 )
 excel_tab = full_tab[EXCEL_COLS].copy()
 
@@ -262,11 +261,11 @@ IMPORT_COLS = (
      "LoanToValu", "OrigAmount", "State", "OrigFico",
      "Iss_Coupon", "Lt_Cap", "Arm_Spd", "IdxSelDays", "Tsr_Period",
      "Reset_Term", "Cap", "First_Cap", "IndexName", "IndexCode", "Notional"]
-    + [f"custrt{i}"      for i in range(13)]
-    + [f"curbookbal{i}"  for i in range(13)]
-    + [f"d{i}"           for i in range(1, 13)]
-    + [f"unschedPmt{i}"  for i in range(1, 13)]
-    + [f"schedBal{i}"    for i in range(1, 13)]
+    + [f"custrt{i}"      for i in range(N)]
+    + [f"curbookbal{i}"  for i in range(N)]
+    + [f"d{i}"           for i in range(1, N)]
+    + [f"unschedPmt{i}"  for i in range(1, N)]
+    + [f"schedBal{i}"    for i in range(1, N)]
 )
 import_tab = excel_tab[IMPORT_COLS].copy()
 
