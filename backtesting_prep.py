@@ -34,7 +34,6 @@ DATES = _gen_dates(DATE_START, DATE_END)  # must have 13 periods
 TODAY = datetime(2025, 10, 31)  # last day of the latest backtesting month
 FEEDCODE = "bnmg"
 
-ALMX_DIR  = r"C:\1_Monthly Backtesting\MBT\almxclean" + "\\"
 SQL_DIR   = r"C:\1_Monthly Backtesting\MBT\sqldata" + "\\"
 OUT_DIR   = r"C:\1_Monthly Backtesting\2025\202511ME\Mortgage" + "\\"
 COLLATMAP = r"C:\1_Monthly Backtesting\MBT\CollatIdMapping.csv"
@@ -72,13 +71,12 @@ def _ext_cur(table, col_name):
 
 
 # ── Load data ─────────────────────────────────────────────────────────────────
-almx_0 = pd.read_csv(f"{ALMX_DIR}{FEED}-{DATES[0]}-clean.csv", low_memory=False)
 raws = [
     pd.read_csv(f"{SQL_DIR}{FEEDCODE}-{d}.csv", low_memory=False, encoding="utf-8-sig")
     for d in DATES
 ]
 
-# ── left_raw: starting portfolio = inner join of first ALMx and first SQL ─────
+# ── left_raw: static loan attributes from the first raw snapshot ──────────────
 RAW_RENAME = {
     "_K_CertificateCode":  "Uniqueid",
     "R_Coa":               "Coa",
@@ -115,11 +113,6 @@ LEFT_RAW_COLS = [
 ]
 left_raw = (
     raws[0]
-    .merge(
-        almx_0[["AlternateUniqueId"]].rename(columns={"AlternateUniqueId": "_K_CertificateCode"}),
-        on="_K_CertificateCode",
-        how="inner",
-    )
     .sort_values("_K_CertificateCode")
     .rename(columns=RAW_RENAME)[LEFT_RAW_COLS]
 )
