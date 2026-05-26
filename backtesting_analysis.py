@@ -29,15 +29,18 @@ OUT_DIR     = r"C:\Version 6\v6.43f" + "\\"
 # ── Load data ─────────────────────────────────────────────────────────────────
 actual_file = pd.read_csv(ACTUAL_FILE)
 
+# Infer number of periods from curbookbal columns (curbookbal0 … curbookbalN-1)
+N = sum(1 for c in actual_file.columns if c.startswith("curbookbal"))
+
 if OUTPUT in ("predict", "both"):
     predsmm_file = pd.read_csv(PRED_FILE)
 
 # ── Shared aggregation spec ───────────────────────────────────────────────────
 AGG = {
     "n":        ("Uniqueid",      "count"),
-    **{f"bal{i}":      (f"curbookbal{i}",  "sum") for i in range(13)},
-    **{f"unsched{i}":  (f"unschedPmt{i}",  "sum") for i in range(1, 13)},
-    **{f"sbal{i}":     (f"schedBal{i}",    "sum") for i in range(1, 13)},
+    **{f"bal{i}":      (f"curbookbal{i}",  "sum") for i in range(N)},
+    **{f"unsched{i}":  (f"unschedPmt{i}",  "sum") for i in range(1, N)},
+    **{f"sbal{i}":     (f"schedBal{i}",    "sum") for i in range(1, N)},
 }
 
 # ── Actuals CPR Summary ───────────────────────────────────────────────────────
@@ -53,8 +56,8 @@ if OUTPUT in ("actual", "both"):
 if OUTPUT in ("predict", "both"):
     PRED_COLS = (
         ["Uniqueid", "Cltrl_Group", "Cltrl_Id_2", "curbookbal0"]
-        + [f"custrt{i}"  for i in range(13)]
-        + [f"curpmt{i}"  for i in range(12)]
+        + [f"custrt{i}"  for i in range(N)]
+        + [f"curpmt{i}"  for i in range(N-1)]
     )
 
     predsmm_calc = (
@@ -65,7 +68,7 @@ if OUTPUT in ("predict", "both"):
 
     # Iteratively recompute balances using predicted SMM values.
     # Each period's curbookbal is overwritten so subsequent periods use it.
-    for i in range(1, 13):
+    for i in range(1, N):
         p = i - 1  # previous period index
 
         bal  = predsmm_calc[f"curbookbal{p}"].to_numpy(dtype=float)
