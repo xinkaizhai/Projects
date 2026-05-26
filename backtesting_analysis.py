@@ -6,7 +6,9 @@ Python equivalent of the second R script:
   backtesting_prep.py, referred to as `actual_file` in the original R code).
 - Aggregates actual balances and prepayments by collateral group.
 - Recalculates projected balances using the predicted SMM values.
-- Exports actuals and predicted summary tables, split by loan category.
+- Computes CPR for each period: (1 - (1 - unsched/sbal)^12) * 100
+- Exports one combined actuals file and one combined predicts file, with a
+  Category column identifying each loan group.
 
 NOTE: `actual_file` corresponds to the `import_tab` produced by backtesting_prep.py.
       Load it from the CSV written there, or pass the DataFrame directly if running
@@ -76,21 +78,37 @@ AGG = {
     **{f"sbal{i}":     (f"schedBal{i}",    "sum") for i in range(1, N)},
 }
 
-# ── Analysis helper ───────────────────────────────────────────────────────────
+
+def _add_cpr(df):
+    """Append CPR{i} columns: (1 - (1 - unsched{i}/sbal{i})^12) * 100."""
+    for i in range(1, N):
+        with np.errstate(divide="ignore", invalid="ignore"):
+            smm = np.where(df[f"sbal{i}"] == 0, 0,
+                           df[f"unsched{i}"] / df[f"sbal{i}"])
+        df[f"CPR{i}"] = (1 - (1 - smm) ** 12) * 100
+    return df
+
+
+def _aggregate(cat_data):
+    return (
+        cat_data
+        .groupby(["Cltrl_Group", "Cltrl_Id_2"])
+        .agg(**{k: pd.NamedAgg(column=v[0], aggfunc=v[1]) for k, v in AGG.items()})
+        .reset_index()
+    )
+
+
+# ── Analysis helper — returns (actuals_df, predicts_df) or None ───────────────
 def run_analysis(cat_name, cat_data):
     if cat_data.empty:
         print(f"Skipping {cat_name}: no matching loans.")
-        return
+        return None, None
+
+    actuals_df = predicts_df = None
 
     if OUTPUT in ("actual", "both"):
-        actuals = (
-            cat_data
-            .groupby(["Cltrl_Group", "Cltrl_Id_2"])
-            .agg(**{k: pd.NamedAgg(column=v[0], aggfunc=v[1]) for k, v in AGG.items()})
-            .reset_index()
-        )
-        actuals.to_csv(f"{OUT_DIR}USmortgageBN_Actual_{cat_name}.csv", index=False)
-        print(f"Written: USmortgageBN_Actual_{cat_name}.csv")
+        actuals_df = _add_cpr(_aggregate(cat_data))
+        actuals_df.insert(0, "Category", cat_name)
 
     if OUTPUT in ("predict", "both"):
         PRED_COLS = (
@@ -118,22 +136,45 @@ def run_analysis(cat_name, cat_data):
             predsmm_calc[f"schedBal{i}"]   = sched_bal
             predsmm_calc[f"unschedPmt{i}"] = unsched
             predsmm_calc[f"curbookbal{i}"] = new_bal
-        predicts = (
-            predsmm_calc
-            .groupby(["Cltrl_Group", "Cltrl_Id_2"])
-            .agg(**{k: pd.NamedAgg(column=v[0], aggfunc=v[1]) for k, v in AGG.items()})
-            .reset_index()
-        )
-        predicts.to_csv(f"{OUT_DIR}USmortgageBN_Predict_{cat_name}.csv", index=False)
-        print(f"Written: USmortgageBN_Predict_{cat_name}.csv")
+        predicts_df = _add_cpr(_aggregate(predsmm_calc))
+        predicts_df.insert(0, "Category", cat_name)
+
+    return actuals_df, predicts_df
 
 
-# ── Fixed / ARM top-level categories (by RiskProduct keyword) ─────────────────
-run_analysis("Fixed", actual_file[actual_file["RiskProduct"].str.contains("Fixed",      case=False, na=False)].copy())
-run_analysis("ARM",   actual_file[actual_file["RiskProduct"].str.contains("Adjustable", case=False, na=False)].copy())
+# ── Run all categories ────────────────────────────────────────────────────────
+all_actuals  = []
+all_predicts = []
 
-# ── Sub-categories by collateral group ────────────────────────────────────────
+# Fixed / ARM top-level by RiskProduct
+for cat_name, keyword in [("Fixed", "Fixed"), ("ARM", "Adjustable")]:
+    a, p = run_analysis(
+        cat_name,
+        actual_file[actual_file["RiskProduct"].str.contains(keyword, case=False, na=False)].copy()
+    )
+    if a  is not None: all_actuals.append(a)
+    if p  is not None: all_predicts.append(p)
+
+# Sub-categories by Cltrl_Group
 for cat_name, cltrl_groups in CATEGORIES.items():
-    run_analysis(cat_name, actual_file[actual_file["Cltrl_Group"].isin(cltrl_groups)].copy())
+    a, p = run_analysis(
+        cat_name,
+        actual_file[actual_file["Cltrl_Group"].isin(cltrl_groups)].copy()
+    )
+    if a  is not None: all_actuals.append(a)
+    if p  is not None: all_predicts.append(p)
+
+# ── Export combined files ─────────────────────────────────────────────────────
+if OUTPUT in ("actual", "both") and all_actuals:
+    pd.concat(all_actuals, ignore_index=True).to_csv(
+        f"{OUT_DIR}USmortgageBN_Actual_Results.csv", index=False
+    )
+    print("Written: USmortgageBN_Actual_Results.csv")
+
+if OUTPUT in ("predict", "both") and all_predicts:
+    pd.concat(all_predicts, ignore_index=True).to_csv(
+        f"{OUT_DIR}USmortgageBN_Predict_Results.csv", index=False
+    )
+    print("Written: USmortgageBN_Predict_Results.csv")
 
 print("Done. Files written to", OUT_DIR)
