@@ -80,11 +80,11 @@ AGG = {
 
 
 def _add_cpr(df):
-    """Append CPR{i} columns: (1 - (1 - unsched{i}/sbal{i})^12) * 100."""
+    """Compute CPR at category level: sum(unsched) / sum(sbal) per period."""
     for i in range(1, N):
-        with np.errstate(divide="ignore", invalid="ignore"):
-            smm = np.where(df[f"sbal{i}"] == 0, 0,
-                           df[f"unsched{i}"] / df[f"sbal{i}"])
+        total_unsched = df[f"unsched{i}"].sum()
+        total_sbal    = df[f"sbal{i}"].sum()
+        smm = 0 if total_sbal == 0 else total_unsched / total_sbal
         df[f"CPR{i}"] = (1 - (1 - smm) ** 12) * 100
     return df
 
