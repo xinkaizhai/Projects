@@ -28,6 +28,12 @@ OUT_DIR     = r"C:\Version 6\v6.43f" + "\\"
 
 # ── Category definitions (Cltrl_Group sets per loan category) ─────────────────
 CATEGORIES = {
+    "Fixed_Conforming": {
+        "Conf Fixed 30y", "Conf Constr Fixed",
+        "COMMUNITY CONFORMING 30 YEAR FIXED", "30YR FIXED REFINOW",
+        "Agency Eligible 30y", "Conf Fixed 15y", "15YR FIXED REFINOW",
+        "Agency Eligible 15y",
+    },
     "Fixed_Conforming_30y": {
         "Conf Fixed 30y", "Conf Constr Fixed",
         "COMMUNITY CONFORMING 30 YEAR FIXED", "30YR FIXED REFINOW",
@@ -35,6 +41,9 @@ CATEGORIES = {
     },
     "Fixed_Conforming_15y": {
         "Conf Fixed 15y", "15YR FIXED REFINOW", "Agency Eligible 15y",
+    },
+    "Fixed_Jumbo": {
+        "Jumbo Fixed 30y", "Jumbo Constr Fixed", "Jumbo Fixed 15y",
     },
     "Fixed_Jumbo_30y": {
         "Jumbo Fixed 30y", "Jumbo Constr Fixed",
