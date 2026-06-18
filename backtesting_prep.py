@@ -81,7 +81,12 @@ def _ext_cur(table, col_name):
 
 # ── Load data ─────────────────────────────────────────────────────────────────
 raws = [
-    pd.read_csv(f"{SQL_DIR}{FEEDCODE}-{d}.csv", low_memory=False, encoding="utf-8-sig")
+    pd.read_csv(
+        f"{SQL_DIR}{FEEDCODE}-{d}.csv",
+        low_memory=False,
+        encoding="utf-8-sig",
+        dtype={"_K_CertificateCode": str},
+    )
     for d in DATES
 ]
 
