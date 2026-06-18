@@ -129,7 +129,9 @@ for month_key, asof_date in month_map[1:]:
 
 conn.close()
 
-xfp_df["_K_CertificateCode"] = xfp_df["_K_CertificateCode"].astype(str)
+xfp_df["_K_CertificateCode"] = (
+    xfp_df["_K_CertificateCode"].astype(str).str.lstrip("0")
+)
 xfp_df = xfp_df.sort_values("_K_CertificateCode").reset_index(drop=True)
 
 # ── Diagnostics: verify key alignment before any merges ──────────────────────
