@@ -94,26 +94,38 @@ month_map = [
 
 conn = pyodbc.connect(DB_CONN)
 
+
+def _query(sql):
+    """Run SQL and return a DataFrame without triggering the SQLAlchemy warning."""
+    cursor = conn.cursor()
+    cursor.execute(sql)
+    cols = [d[0] for d in cursor.description]
+    return pd.DataFrame.from_records(cursor.fetchall(), columns=cols)
+
+
 # Base month — defines starting portfolio universe
 base_key, base_date = month_map[0]
-xfp_df = pd.read_sql(f"""
+xfp_df = _query(f"""
     SELECT _K_CertificateCode, XFP_CurrHold AS [{base_key}]
     FROM [CanoeReporting].[USMortgageBN].[XFpDaily]
     WHERE _K_AsOfDate = '{base_date}'
       AND XFP_ValuationType = 'Closed'
-""", conn)
+""")
 
 # Remaining months — left join onto base universe
 for month_key, asof_date in month_map[1:]:
-    temp_df = pd.read_sql(f"""
+    temp_df = _query(f"""
         SELECT _K_CertificateCode, XFP_CurrHold AS [{month_key}]
         FROM [CanoeReporting].[USMortgageBN].[XFpDaily]
         WHERE _K_AsOfDate = '{asof_date}'
           AND XFP_ValuationType = 'Closed'
-    """, conn)
+    """)
     xfp_df = xfp_df.merge(temp_df, on="_K_CertificateCode", how="left")
 
 conn.close()
+
+# Cast to string to match _K_CertificateCode dtype in CSV files
+xfp_df["_K_CertificateCode"] = xfp_df["_K_CertificateCode"].astype(str)
 xfp_df = xfp_df.sort_values("_K_CertificateCode").reset_index(drop=True)
 
 # ── left_raw: static loan attributes from the first raw snapshot ──────────────
