@@ -111,7 +111,7 @@ def _query(sql):
 # Base month — defines starting portfolio universe
 base_key, base_date = month_map[0]
 xfp_df = _query(f"""
-    SELECT Uniqueid, XFP_CurrHold AS [{base_key}]
+    SELECT _K_CertificateCode, XFP_CurrHold AS [{base_key}]
     FROM [CanoeReporting].[USMortgageBN].[XFpDaily]
     WHERE _K_AsOfDate = '{base_date}'
       AND XFP_ValuationType = 'Closed'
@@ -120,16 +120,19 @@ xfp_df = _query(f"""
 # Remaining months — left join onto base universe
 for month_key, asof_date in month_map[1:]:
     temp_df = _query(f"""
-        SELECT Uniqueid, XFP_CurrHold AS [{month_key}]
+        SELECT _K_CertificateCode, XFP_CurrHold AS [{month_key}]
         FROM [CanoeReporting].[USMortgageBN].[XFpDaily]
         WHERE _K_AsOfDate = '{asof_date}'
           AND XFP_ValuationType = 'Closed'
     """)
-    xfp_df = xfp_df.merge(temp_df, on="Uniqueid", how="left")
+    xfp_df = xfp_df.merge(temp_df, on="_K_CertificateCode", how="left")
 
 conn.close()
 
-xfp_df["Uniqueid"] = xfp_df["Uniqueid"].astype(str)
+# _K_CertificateCode is varchar in the DB (zero-padded, e.g. "0000000000009112");
+# cast to str in case pyodbc returns it differently, then rename to Uniqueid.
+xfp_df["_K_CertificateCode"] = xfp_df["_K_CertificateCode"].astype(str)
+xfp_df = xfp_df.rename(columns={"_K_CertificateCode": "Uniqueid"})
 xfp_df = xfp_df.sort_values("Uniqueid").reset_index(drop=True)
 
 # ── left_raw: static loan attributes from the first raw snapshot ──────────────
