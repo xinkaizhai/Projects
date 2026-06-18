@@ -132,7 +132,19 @@ conn.close()
 xfp_df["_K_CertificateCode"] = xfp_df["_K_CertificateCode"].astype(str)
 xfp_df = xfp_df.sort_values("_K_CertificateCode").reset_index(drop=True)
 
-# ── left_raw: static loan attributes from the first raw snapshot ──────────────
+# ── Diagnostics: verify key alignment before any merges ──────────────────────
+print("=== Key Diagnostics ===")
+print(f"xfp rows: {len(xfp_df)}, dtype: {xfp_df['_K_CertificateCode'].dtype}")
+print(f"xfp sample keys: {xfp_df['_K_CertificateCode'].head(3).tolist()}")
+print(f"raws[0] rows: {len(raws[0])}, dtype: {raws[0]['_K_CertificateCode'].dtype}")
+print(f"raws[0] sample keys: {raws[0]['_K_CertificateCode'].head(3).tolist()}")
+_match = xfp_df[["_K_CertificateCode"]].merge(
+    raws[0][["_K_CertificateCode"]], on="_K_CertificateCode", how="inner"
+)
+print(f"Inner-join matched rows: {len(_match)}")
+print("=======================")
+
+
 RAW_RENAME = {
     "_K_CertificateCode":  "Uniqueid",
     "R_Coa":               "Coa",
