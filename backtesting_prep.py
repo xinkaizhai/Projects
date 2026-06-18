@@ -129,11 +129,8 @@ for month_key, asof_date in month_map[1:]:
 
 conn.close()
 
-# _K_CertificateCode is varchar in the DB (zero-padded, e.g. "0000000000009112");
-# cast to str in case pyodbc returns it differently, then rename to Uniqueid.
 xfp_df["_K_CertificateCode"] = xfp_df["_K_CertificateCode"].astype(str)
-xfp_df = xfp_df.rename(columns={"_K_CertificateCode": "Uniqueid"})
-xfp_df = xfp_df.sort_values("Uniqueid").reset_index(drop=True)
+xfp_df = xfp_df.sort_values("_K_CertificateCode").reset_index(drop=True)
 
 # ── left_raw: static loan attributes from the first raw snapshot ──────────────
 RAW_RENAME = {
@@ -171,13 +168,9 @@ LEFT_RAW_COLS = [
     "First_Cap", "IndexName", "Ownership", "Notional",
 ]
 left_raw = (
-    xfp_df[["Uniqueid"]]
-    .merge(
-        raws[0].rename(columns={"_K_CertificateCode": "Uniqueid"}),
-        on="Uniqueid",
-        how="left",
-    )
-    .sort_values("Uniqueid")
+    xfp_df[["_K_CertificateCode"]]
+    .merge(raws[0], on="_K_CertificateCode", how="left")
+    .sort_values("_K_CertificateCode")
     .rename(columns=RAW_RENAME)[LEFT_RAW_COLS]
 )
 
@@ -203,13 +196,16 @@ for i in range(1, N):
 cust_tab[custrt_cols] = cust_tab[custrt_cols].fillna(0)
 
 # ── bal_tab: XFP_CurrHold balances for all N periods ─────────────────────────
-bal_tab = xfp_df.rename(columns={d: f"curbookbal{i}" for i, d in enumerate(DATES)})
+bal_tab = xfp_df.rename(columns={
+    "_K_CertificateCode": "Uniqueid",
+    **{d: f"curbookbal{i}" for i, d in enumerate(DATES)},
+})
 bal_cols = [f"curbookbal{i}" for i in range(N)]
 bal_tab = bal_tab[["Uniqueid"] + bal_cols].copy()
 bal_tab[bal_cols] = bal_tab[bal_cols].fillna(0)
 
 # ── curpmt_tab: current payments for periods 0 to N-2 (one fewer than balances)
-curpmt_tab = xfp_df[["Uniqueid"]].copy()
+curpmt_tab = xfp_df[["_K_CertificateCode"]].rename(columns={"_K_CertificateCode": "Uniqueid"})
 for i, r in enumerate(raws[:N-1]):
     curpmt_tab = curpmt_tab.merge(_ext_cur(r, f"curpmt{i}"), on="Uniqueid", how="left")
 
