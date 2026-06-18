@@ -2,7 +2,9 @@
 backtesting_prep.py
 
 Python equivalent of the first R script:
-- Loads Canoe SQL (enriched) tables for 13 periods
+- Loads XFP_CurrHold balances from CanoeReporting SQL DB for N periods
+- Loads Canoe SQL (enriched) CSV tables for rates, payments, and loan attributes
+- Uses first XFP month as starting portfolio; left-joins SQL attributes
 - Builds customer-rate, book-balance, and current-payment panels
 - Computes scheduled balances, d-ratios, and unscheduled prepayments
 - Exports a full backtesting table and a slimmer import table
@@ -10,7 +12,9 @@ Python equivalent of the first R script:
 
 import pandas as pd
 import numpy as np
+import pyodbc
 from datetime import datetime
+from pandas.tseries.offsets import MonthEnd, BDay
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 FEED = "UsMortgageBN"
@@ -38,9 +42,23 @@ SQL_DIR   = r"C:\1_Monthly Backtesting\MBT\sqldata" + "\\"
 OUT_DIR   = r"C:\1_Monthly Backtesting\2025\202511ME\Mortgage" + "\\"
 COLLATMAP = r"C:\1_Monthly Backtesting\MBT\CollatIdMapping.csv"
 
+DB_CONN = (
+    "DRIVER={ODBC Driver 17 for SQL Server};"
+    "SERVER=CRSDPSBCA0TBC.tdbfg.com,3341;"
+    "DATABASE=CanoeReporting;"
+    "Trusted_Connection=yes;"
+)
+
 N = len(DATES)
 
 # ── Helper functions ───────────────────────────────────────────────────────────
+def last_weekday_of_month(date):
+    month_end = date + MonthEnd(0)
+    if month_end.weekday() >= 5:
+        month_end = month_end - BDay(1)
+    return month_end
+
+
 def cpnfix(coupon):
     """Convert semi-annual compounded coupon to monthly/simple rate."""
     return np.round(1200 * (((coupon / 200) + 1) ** (1 / 6) - 1), 3)
@@ -52,15 +70,6 @@ def _ext_cust(table, col_name):
     tmp[col_name] = cpnfix(tmp["R_Coupon"].to_numpy(dtype=float))
     return tmp.rename(columns={"_K_CertificateCode": "Uniqueid"})[["Uniqueid", col_name]]
 
-
-def _ext_bal(table, col_name):
-    """Return (Uniqueid, <col_name>) from a SQL table."""
-    tmp = table.copy()
-    tmp[col_name] = pd.to_numeric(
-        tmp["E_Notional"].astype(str).str.replace(",", "", regex=False),
-        errors="coerce",
-    )
-    return tmp.rename(columns={"_K_CertificateCode": "Uniqueid"})[["Uniqueid", col_name]]
 
 
 def _ext_cur(table, col_name):
@@ -75,6 +84,37 @@ raws = [
     pd.read_csv(f"{SQL_DIR}{FEEDCODE}-{d}.csv", low_memory=False, encoding="utf-8-sig")
     for d in DATES
 ]
+
+# ── XFP balances from CanoeReporting DB ───────────────────────────────────────
+# month_map: [(YYYYMM, last-weekday-of-month date string), ...]
+month_map = [
+    (d, last_weekday_of_month(pd.Timestamp(f"{d[:4]}-{d[4:]}-01")).strftime("%Y-%m-%d"))
+    for d in DATES
+]
+
+conn = pyodbc.connect(DB_CONN)
+
+# Base month — defines starting portfolio universe
+base_key, base_date = month_map[0]
+xfp_df = pd.read_sql(f"""
+    SELECT _K_CertificateCode, XFP_CurrHold AS [{base_key}]
+    FROM [CanoeReporting].[USMortgageBN].[XFpDaily]
+    WHERE _K_AsOfDate = '{base_date}'
+      AND XFP_ValuationType = 'Closed'
+""", conn)
+
+# Remaining months — left join onto base universe
+for month_key, asof_date in month_map[1:]:
+    temp_df = pd.read_sql(f"""
+        SELECT _K_CertificateCode, XFP_CurrHold AS [{month_key}]
+        FROM [CanoeReporting].[USMortgageBN].[XFpDaily]
+        WHERE _K_AsOfDate = '{asof_date}'
+          AND XFP_ValuationType = 'Closed'
+    """, conn)
+    xfp_df = xfp_df.merge(temp_df, on="_K_CertificateCode", how="left")
+
+conn.close()
+xfp_df = xfp_df.sort_values("_K_CertificateCode").reset_index(drop=True)
 
 # ── left_raw: static loan attributes from the first raw snapshot ──────────────
 RAW_RENAME = {
@@ -112,7 +152,8 @@ LEFT_RAW_COLS = [
     "First_Cap", "IndexName", "Ownership", "Notional",
 ]
 left_raw = (
-    raws[0]
+    xfp_df[["_K_CertificateCode"]]
+    .merge(raws[0], on="_K_CertificateCode", how="left")
     .sort_values("_K_CertificateCode")
     .rename(columns=RAW_RENAME)[LEFT_RAW_COLS]
 )
@@ -138,19 +179,17 @@ for i in range(1, N):
     cust_tab[f"custrt{i}"] = cust_tab[f"custrt{i}"].fillna(cust_tab[f"custrt{i-1}"])
 cust_tab[custrt_cols] = cust_tab[custrt_cols].fillna(0)
 
-# ── bal_tab: current book balances for all 13 periods ────────────────────────
-bal_tab = _ext_bal(raws[0], "curbookbal0")
-for i, t in enumerate(raws[1:], 1):
-    bal_tab = bal_tab.merge(_ext_bal(t, f"curbookbal{i}"), on="Uniqueid", how="left")
-
+# ── bal_tab: XFP_CurrHold balances for all N periods ─────────────────────────
+bal_tab = xfp_df.rename(columns={"_K_CertificateCode": "Uniqueid"}).rename(
+    columns={d: f"curbookbal{i}" for i, d in enumerate(DATES)}
+)
 bal_cols = [f"curbookbal{i}" for i in range(N)]
+bal_tab = bal_tab[["Uniqueid"] + bal_cols].copy()
 bal_tab[bal_cols] = bal_tab[bal_cols].fillna(0)
 
 # ── curpmt_tab: current payments for periods 0 to N-2 (one fewer than balances)
-curpmt_tab = (
-    raws[0]
-    .sort_values("_K_CertificateCode")
-    .rename(columns={"_K_CertificateCode": "Uniqueid"})[["Uniqueid"]]
+curpmt_tab = xfp_df[["_K_CertificateCode"]].rename(
+    columns={"_K_CertificateCode": "Uniqueid"}
 )
 for i, r in enumerate(raws[:N-1]):
     curpmt_tab = curpmt_tab.merge(_ext_cur(r, f"curpmt{i}"), on="Uniqueid", how="left")
