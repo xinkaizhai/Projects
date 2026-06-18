@@ -334,7 +334,7 @@ for col in ("IssueDt", "Maturity"):
     import_tab[col] = (
         pd.to_datetime(import_tab[col], infer_datetime_format=True)
         .dt.strftime("%Y%m")
-        .astype(int)
+        .astype("Int64")  # nullable int — tolerates NaN for unmatched loans
     )
 
 import_tab.to_csv(
