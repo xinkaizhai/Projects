@@ -79,9 +79,9 @@ smm, mdr = model.calc_prepay_and_default_mthread(
     # score_switch not set → file-driven scoring (default)
 )
 print("=== Example 1: FRM, scoring ON ===")
-print(f"SMM[0:6]   : {[round(v, 6) for v in smm[:6]]}")
-print(f"CPR[0:6]   : {[round((1-(1-v)**12)*100, 4) for v in smm[:6]]}")
-print(f"MDR[0:6]   : {[round(v, 6) for v in mdr[:6]]}")
+print(f"SMM[0:40]  : {[round(v, 6) for v in smm[:40]]}")
+print(f"CPR[0:40]  : {[round((1-(1-v)**12)*100, 4) for v in smm[:40]]}")
+print(f"MDR[0:40]  : {[round(v, 6) for v in mdr[:40]]}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Example 2 — FRM, scoring OFF
@@ -103,7 +103,7 @@ smm_off, _ = model.calc_prepay_and_default_mthread(
     score_switch     = 2,   # 2 = both prepay and default scores OFF
 )
 print("\n=== Example 2: FRM, scoring OFF ===")
-print(f"SMM[0:6]   : {[round(v, 6) for v in smm_off[:6]]}")
+print(f"SMM[0:40]  : {[round(v, 6) for v in smm_off[:40]]}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Example 3 — Two-step scoring: compute scores first, then main run
@@ -156,7 +156,7 @@ if scores_pre:
         unemp_start_yyyymm = 202503,
         input_scores     = scores_pre,  # pre-filled → appears in DLL log
     )
-    print(f"SMM[0:6] (2-step) : {[round(v, 6) for v in smm_2step[:6]]}")
+    print(f"SMM[0:40] (2-step) : {[round(v, 6) for v in smm_2step[:40]]}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Example 4 — 5/1 ARM with HPI, UE, and two-step scoring
@@ -217,8 +217,8 @@ smm_arm, mdr_arm = model.calc_prepay_and_default_mthread(
     },
     input_scores = scores_arm,   # None-safe: wrapper skips if None
 )
-print(f"ARM SMM[0:6] : {[round(v, 6) for v in smm_arm[:6]]}")
-print(f"ARM MDR[0:6] : {[round(v, 6) for v in mdr_arm[:6]]}")
+print(f"ARM SMM[0:40] : {[round(v, 6) for v in smm_arm[:40]]}")
+print(f"ARM MDR[0:40] : {[round(v, 6) for v in mdr_arm[:40]]}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Example 5 — FRM with fine_tune overrides
@@ -294,8 +294,8 @@ smm_ft, mdr_ft = model.calc_prepay_and_default_mthread(
     },
 )
 print("\n=== Example 5: FRM with fine_tune overrides ===")
-print(f"SMM[0:6]     : {[round(v, 6) for v in smm_ft[:6]]}")
-print(f"CPR[0:6]     : {[round((1-(1-v)**12)*100, 4) for v in smm_ft[:6]]}")
-print(f"MDR[0:6]     : {[round(v, 6) for v in mdr_ft[:6]]}")
+print(f"SMM[0:40]    : {[round(v, 6) for v in smm_ft[:40]]}")
+print(f"CPR[0:40]    : {[round((1-(1-v)**12)*100, 4) for v in smm_ft[:40]]}")
+print(f"MDR[0:40]    : {[round(v, 6) for v in mdr_ft[:40]]}")
 # Compare against base (Example 1) to see the fine_tune impact
-print(f"ΔSMM vs base : {[round(smm_ft[i]-smm[i], 6) for i in range(6)]}")
+print(f"ΔSMM vs base : {[round(smm_ft[i]-smm[i], 6) for i in range(40)]}")
