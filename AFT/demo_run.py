@@ -30,7 +30,7 @@ proj_unemp = [4.2] * 12 + [4.5] * 12 + [4.8] * 12 + [4.5] * (N - 36)
 # ─────────────────────────────────────────────────────────────────────────────
 # Example 1 — FRM, scoring ON (file-driven, default behaviour)
 # ─────────────────────────────────────────────────────────────────────────────
-smm, defaults, scores = model.calc_prepay_and_default_mthread(
+smm, mdr = model.calc_prepay_and_default_mthread(
     agency_name      = b"FNMA",
     orig_term_months = 360,
     age_months       = 36,
@@ -81,14 +81,12 @@ smm, defaults, scores = model.calc_prepay_and_default_mthread(
 print("=== Example 1: FRM, scoring ON ===")
 print(f"SMM[0:6]   : {[round(v, 6) for v in smm[:6]]}")
 print(f"CPR[0:6]   : {[round((1-(1-v)**12)*100, 4) for v in smm[:6]]}")
-if defaults:
-    print(f"default[0] : {defaults[0]}")
-print(f"scores     : {scores}")
+print(f"MDR[0:6]   : {[round(v, 6) for v in mdr[:6]]}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Example 2 — FRM, scoring OFF
 # ─────────────────────────────────────────────────────────────────────────────
-smm_off, _, _ = model.calc_prepay_and_default_mthread(
+smm_off, _ = model.calc_prepay_and_default_mthread(
     agency_name      = b"FNMA",
     orig_term_months = 360,
     age_months       = 36,
@@ -138,7 +136,7 @@ print("\n=== Example 3: Two-step scoring ===")
 print(f"Pre-computed scores : {scores_pre}")
 
 if scores_pre:
-    smm_2step, defaults_2step, _ = model.calc_prepay_and_default_mthread(
+    smm_2step, _ = model.calc_prepay_and_default_mthread(
         agency_name      = b"FNMA",
         orig_term_months = 360,
         age_months       = 36,
@@ -183,7 +181,7 @@ scores_arm = model.calc_loan_score(
 print("\n=== Example 4: 5/1 ARM, two-step scoring ===")
 print(f"ARM scores : {scores_arm}")
 
-smm_arm, defaults_arm, _ = model.calc_prepay_and_default_mthread(
+smm_arm, mdr_arm = model.calc_prepay_and_default_mthread(
     agency_name      = b"FNMA",
     orig_term_months = 360,
     age_months       = 12,
@@ -220,6 +218,7 @@ smm_arm, defaults_arm, _ = model.calc_prepay_and_default_mthread(
     input_scores = scores_arm,   # None-safe: wrapper skips if None
 )
 print(f"ARM SMM[0:6] : {[round(v, 6) for v in smm_arm[:6]]}")
+print(f"ARM MDR[0:6] : {[round(v, 6) for v in mdr_arm[:6]]}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Example 5 — FRM with fine_tune overrides
@@ -256,7 +255,7 @@ print(f"ARM SMM[0:6] : {[round(v, 6) for v in smm_arm[:6]]}")
 #     "refi_age_mult_change"  → dRefiAgeMultiplierChange
 #     "mtg_rate_type"         → nEspPrepayMtgRateType
 # ─────────────────────────────────────────────────────────────────────────────
-smm_ft, defaults_ft, _ = model.calc_prepay_and_default_mthread(
+smm_ft, mdr_ft = model.calc_prepay_and_default_mthread(
     agency_name      = b"FNMA",
     orig_term_months = 360,
     age_months       = 36,
@@ -297,5 +296,6 @@ smm_ft, defaults_ft, _ = model.calc_prepay_and_default_mthread(
 print("\n=== Example 5: FRM with fine_tune overrides ===")
 print(f"SMM[0:6]     : {[round(v, 6) for v in smm_ft[:6]]}")
 print(f"CPR[0:6]     : {[round((1-(1-v)**12)*100, 4) for v in smm_ft[:6]]}")
+print(f"MDR[0:6]     : {[round(v, 6) for v in mdr_ft[:6]]}")
 # Compare against base (Example 1) to see the fine_tune impact
 print(f"ΔSMM vs base : {[round(smm_ft[i]-smm[i], 6) for i in range(6)]}")

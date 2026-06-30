@@ -2044,9 +2044,16 @@ class AFTModel:
         on_the_fly_scoring: bool = False,
         score_switch: Optional[int] = None,
         thread_key: str = "default",
-    ) -> Tuple[List[float], List[dict], dict]:
+    ) -> Tuple[List[float], List[float]]:
         """
         EspPrep_PrepayAndDefaultModelMThread – combined prepay + default projections.
+
+        Returns
+        -------
+        (smm, mdr)
+            smm : list of float – monthly SMM (total prepay speed)
+            mdr : list of float – monthly MDR (EspDefaultRate.defaultRate);
+                  all zeros if default model parameter files are missing.
 
         Parameters
         ----------
@@ -2132,13 +2139,13 @@ class AFTModel:
                 f"Default model parameter files missing (rc={rc}): "
                 f"{err_buf.value.decode()} — SMM returned, default rates zeroed.",
                 RuntimeWarning, stacklevel=2)
-            return list(smm_buf), [], (sc.to_dict() if sc is not None else {})
+            return list(smm_buf), [0.0] * wam_months
         if rc != 0:
             raise RuntimeError(
                 f"EspPrep_PrepayAndDefaultModelMThread failed (rc={rc}): "
                 f"{err_buf.value.decode()}")
 
-        return list(smm_buf), [d.to_dict() for d in def_buf], (sc.to_dict() if sc is not None else {})
+        return list(smm_buf), [d.defaultRate for d in def_buf]
 
     def calc_prepay_from_cusip(
         self,
