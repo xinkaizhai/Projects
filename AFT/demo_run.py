@@ -4,6 +4,7 @@ demo_run.py — usage examples for esp_wrapper.AFTModel
 Edit DLL_DIR and DATA_DIR before running.
 """
 
+import pandas as pd
 from esp_wrapper import AFTModel
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
@@ -82,6 +83,15 @@ print("=== Example 1: FRM, scoring ON ===")
 print(f"SMM[0:40]  : {[round(v, 6) for v in smm[:40]]}")
 print(f"CPR[0:40]  : {[round((1-(1-v)**12)*100, 4) for v in smm[:40]]}")
 print(f"MDR[0:40]  : {[round(v, 6) for v in mdr[:40]]}")
+
+df1 = pd.DataFrame({
+    "month":  range(1, len(smm) + 1),
+    "smm":    smm,
+    "cpr":    [(1 - (1 - v) ** 12) * 100 for v in smm],
+    "mdr":    mdr,
+})
+print(df1.head(40).to_string(index=False))
+# df1.to_csv("example1_frm.csv", index=False)   # uncomment to save
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Example 2 — FRM, scoring OFF
@@ -220,6 +230,15 @@ smm_arm, mdr_arm = model.calc_prepay_and_default_mthread(
 print(f"ARM SMM[0:40] : {[round(v, 6) for v in smm_arm[:40]]}")
 print(f"ARM MDR[0:40] : {[round(v, 6) for v in mdr_arm[:40]]}")
 
+df4 = pd.DataFrame({
+    "month":  range(1, len(smm_arm) + 1),
+    "smm":    smm_arm,
+    "cpr":    [(1 - (1 - v) ** 12) * 100 for v in smm_arm],
+    "mdr":    mdr_arm,
+})
+print(df4.head(40).to_string(index=False))
+# df4.to_csv("example4_arm.csv", index=False)   # uncomment to save
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Example 5 — FRM with fine_tune overrides
 #
@@ -299,3 +318,14 @@ print(f"CPR[0:40]    : {[round((1-(1-v)**12)*100, 4) for v in smm_ft[:40]]}")
 print(f"MDR[0:40]    : {[round(v, 6) for v in mdr_ft[:40]]}")
 # Compare against base (Example 1) to see the fine_tune impact
 print(f"ΔSMM vs base : {[round(smm_ft[i]-smm[i], 6) for i in range(40)]}")
+
+df5 = pd.DataFrame({
+    "month":     range(1, len(smm_ft) + 1),
+    "smm":       smm_ft,
+    "smm_base":  smm,
+    "cpr":       [(1 - (1 - v) ** 12) * 100 for v in smm_ft],
+    "mdr":       mdr_ft,
+    "delta_smm": [smm_ft[i] - smm[i] for i in range(len(smm_ft))],
+})
+print(df5.head(40).to_string(index=False))
+# df5.to_csv("example5_finetune.csv", index=False)   # uncomment to save
