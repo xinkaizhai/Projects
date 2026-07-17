@@ -204,16 +204,19 @@ class EspDefaultRate(ctypes.Structure):
 
     def to_dict(self) -> dict:
         return {
+            "mdr":                       self.defaultRate,
+            "default_loss":              self.defaultLoss,
             "population_current_pct":    self.dPopulation0,
             "population_30d_pct":        self.dPopulation30,
             "population_60d_pct":        self.dPopulation60,
             "population_90d_pct":        self.dPopulation90,
             "population_foreclosure_pct":self.dPopulationFc,
             "population_reo_pct":        self.dPopulationREO,
-            "mdr":                       self.defaultRate,
-            "default_loss":              self.defaultLoss,
             "curr_ltv":                  self.dEspCurrLTV,
             "proj_mod_rate":             self.dEspProjMod,
+            "months_delinquent_90":      self.dEspProjMonthsDelinquent90,
+            "months_delinquent_fc":      self.dEspProjMonthsDelinquentFC,
+            "months_delinquent_reo":     self.dEspProjMonthsDelinquentREO,
         }
 
 
@@ -2044,16 +2047,21 @@ class AFTModel:
         on_the_fly_scoring: bool = False,
         score_switch: Optional[int] = None,
         thread_key: str = "default",
-    ) -> Tuple[List[float], List[float]]:
+    ) -> Tuple[List[float], List[dict]]:
         """
         EspPrep_PrepayAndDefaultModelMThread – combined prepay + default projections.
 
         Returns
         -------
-        (smm, mdr)
-            smm : list of float – monthly SMM (total prepay speed)
-            mdr : list of float – monthly MDR (EspDefaultRate.defaultRate);
-                  all zeros if default model parameter files are missing.
+        (smm, defaults)
+            smm      : list of float – monthly SMM (total prepay speed)
+            defaults : list of dict  – one dict per month with keys:
+                mdr, default_loss, mdp, life_event_smm,
+                population_current_pct, population_30d_pct, population_60d_pct,
+                population_90d_pct, population_foreclosure_pct, population_reo_pct,
+                curr_ltv, proj_mod_rate,
+                months_delinquent_90, months_delinquent_fc, months_delinquent_reo.
+                All values zeroed if default model parameter files are missing.
 
         Parameters
         ----------
@@ -2094,8 +2102,10 @@ class AFTModel:
         arr5t, ptr5t = _to_double_array(tnote_5yr)
         arr3,  ptr3  = _to_double_array(tnote_3yr)
 
-        smm_buf = (ctypes.c_double * rem_term)()
-        def_buf = (EspDefaultRate * rem_term)()
+        smm_buf        = (ctypes.c_double * rem_term)()
+        def_buf        = (EspDefaultRate * rem_term)()
+        mdp_buf        = (ctypes.c_double * rem_term)()
+        life_event_buf = (ctypes.c_double * rem_term)()
 
         desc = self._make_desc(
             agency_name, orig_term_months, amort_period_months,
@@ -2115,8 +2125,10 @@ class AFTModel:
         proj.settleDateYyyyMm      = settle_date
         proj.mrateDateYyyyMm       = mrate_date
         proj.paramsDir             = self._data_dir
-        proj.projected_smm_percent = ctypes.cast(smm_buf, ctypes.POINTER(ctypes.c_double))
-        proj.projDefaultVector     = ctypes.cast(def_buf, ctypes.POINTER(EspDefaultRate))
+        proj.projected_smm_percent = ctypes.cast(smm_buf,        ctypes.POINTER(ctypes.c_double))
+        proj.projDefaultVector     = ctypes.cast(def_buf,        ctypes.POINTER(EspDefaultRate))
+        proj.projected_mdp_percent = ctypes.cast(mdp_buf,        ctypes.POINTER(ctypes.c_double))
+        proj.projected_life_event_smm = ctypes.cast(life_event_buf, ctypes.POINTER(ctypes.c_double))
         if ptr30: proj.projMortCommitRate30InPercent = ptr30
         if ptr15: proj.projMortCommitRate15InPercent = ptr15
         if ptr7:  proj.projMortCommitRate07InPercent = ptr7
@@ -2131,21 +2143,37 @@ class AFTModel:
             ctypes.byref(desc), ctypes.byref(proj),
             0, -1, err_buf, self._holder(thread_key))
 
+        _zero_defaults = [{"mdr": 0.0, "default_loss": 0.0, "mdp": 0.0,
+                           "life_event_smm": 0.0, "population_current_pct": 0.0,
+                           "population_30d_pct": 0.0, "population_60d_pct": 0.0,
+                           "population_90d_pct": 0.0, "population_foreclosure_pct": 0.0,
+                           "population_reo_pct": 0.0, "curr_ltv": 0.0,
+                           "proj_mod_rate": 0.0, "months_delinquent_90": 0.0,
+                           "months_delinquent_fc": 0.0, "months_delinquent_reo": 0.0}
+                          ] * wam_months
+
         if rc == ESP_ERROR_CODE_FOR_FAILURE_OF_READING_DEFAULT_MODEL_PARAMETER_FILES:
-            # Prepay succeeded; default model parameter files (e.g. HPI data) missing.
-            # SMM is valid; default rates are unavailable.
             import warnings
             warnings.warn(
                 f"Default model parameter files missing (rc={rc}): "
-                f"{err_buf.value.decode()} — SMM returned, default rates zeroed.",
+                f"{err_buf.value.decode()} — SMM returned, default outputs zeroed.",
                 RuntimeWarning, stacklevel=2)
-            return list(smm_buf), [0.0] * wam_months
+            return list(smm_buf), _zero_defaults
         if rc != 0:
             raise RuntimeError(
                 f"EspPrep_PrepayAndDefaultModelMThread failed (rc={rc}): "
                 f"{err_buf.value.decode()}")
 
-        return list(smm_buf), [d.defaultRate for d in def_buf]
+        mdp_list        = list(mdp_buf)
+        life_event_list = list(life_event_buf)
+        defaults = []
+        for i, d in enumerate(def_buf):
+            rec = d.to_dict()
+            rec["mdp"]            = mdp_list[i]
+            rec["life_event_smm"] = life_event_list[i]
+            defaults.append(rec)
+
+        return list(smm_buf), defaults
 
     def calc_prepay_from_cusip(
         self,

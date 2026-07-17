@@ -31,7 +31,7 @@ proj_unemp = [4.2] * 12 + [4.5] * 12 + [4.8] * 12 + [4.5] * (N - 36)
 # ─────────────────────────────────────────────────────────────────────────────
 # Example 1 — FRM, scoring ON (file-driven, default behaviour)
 # ─────────────────────────────────────────────────────────────────────────────
-smm, mdr = model.calc_prepay_and_default_mthread(
+smm, defaults = model.calc_prepay_and_default_mthread(
     agency_name      = b"FNMA",
     orig_term_months = 360,
     age_months       = 36,
@@ -80,16 +80,28 @@ smm, mdr = model.calc_prepay_and_default_mthread(
     # score_switch not set → file-driven scoring (default)
 )
 print("=== Example 1: FRM, scoring ON ===")
-print(f"SMM[0:40]  : {[round(v, 6) for v in smm[:40]]}")
-print(f"CPR[0:40]  : {[round((1-(1-v)**12)*100, 4) for v in smm[:40]]}")
-print(f"MDR[0:40]  : {[round(v, 6) for v in mdr[:40]]}")
 
-df1 = pd.DataFrame({
-    "month":  range(1, len(smm) + 1),
-    "smm":    smm,
-    "cpr":    [(1 - (1 - v) ** 12) * 100 for v in smm],
-    "mdr":    mdr,
-})
+orig_bal = 400_000
+df1 = pd.DataFrame(defaults)
+df1.insert(0, "month", range(1, len(smm) + 1))
+df1.insert(1, "smm",   smm)
+df1.insert(2, "cpr",   [(1 - (1 - v) ** 12) * 100 for v in smm])
+
+# Implied severity = default_loss / mdr  (where mdr > 0)
+df1["implied_severity"] = df1.apply(
+    lambda r: r["default_loss"] / r["mdr"] if r["mdr"] > 0 else 0.0, axis=1)
+
+# Survival / prob alive: cumulative product of (1 - smm) each month
+# SMM already includes involuntary prepay from defaults, so apply once only
+survival = 1.0
+prob_alive, upb = [], []
+for s in smm:
+    survival *= (1 - s)
+    prob_alive.append(survival)
+    upb.append(orig_bal * survival)
+df1["prob_alive"] = prob_alive
+df1["upb"]        = upb
+
 print(df1.head(40).to_string(index=False))
 # df1.to_csv("example1_frm.csv", index=False)   # uncomment to save
 
@@ -191,7 +203,7 @@ scores_arm = model.calc_loan_score(
 print("\n=== Example 4: 5/1 ARM, two-step scoring ===")
 print(f"ARM scores : {scores_arm}")
 
-smm_arm, mdr_arm = model.calc_prepay_and_default_mthread(
+smm_arm, defaults_arm = model.calc_prepay_and_default_mthread(
     agency_name      = b"FNMA",
     orig_term_months = 360,
     age_months       = 12,
@@ -227,15 +239,21 @@ smm_arm, mdr_arm = model.calc_prepay_and_default_mthread(
     },
     input_scores = scores_arm,   # None-safe: wrapper skips if None
 )
-print(f"ARM SMM[0:40] : {[round(v, 6) for v in smm_arm[:40]]}")
-print(f"ARM MDR[0:40] : {[round(v, 6) for v in mdr_arm[:40]]}")
-
-df4 = pd.DataFrame({
-    "month":  range(1, len(smm_arm) + 1),
-    "smm":    smm_arm,
-    "cpr":    [(1 - (1 - v) ** 12) * 100 for v in smm_arm],
-    "mdr":    mdr_arm,
-})
+df4 = pd.DataFrame(defaults_arm)
+df4.insert(0, "month", range(1, len(smm_arm) + 1))
+df4.insert(1, "smm",   smm_arm)
+df4.insert(2, "cpr",   [(1 - (1 - v) ** 12) * 100 for v in smm_arm])
+df4["implied_severity"] = df4.apply(
+    lambda r: r["default_loss"] / r["mdr"] if r["mdr"] > 0 else 0.0, axis=1)
+survival_arm = 1.0
+prob_alive_arm, upb_arm = [], []
+for s in smm_arm:
+    survival_arm *= (1 - s)
+    prob_alive_arm.append(survival_arm)
+    upb_arm.append(orig_bal * survival_arm)
+df4["prob_alive"] = prob_alive_arm
+df4["upb"]        = upb_arm
+print("\n=== Example 4: 5/1 ARM ===")
 print(df4.head(40).to_string(index=False))
 # df4.to_csv("example4_arm.csv", index=False)   # uncomment to save
 
@@ -274,7 +292,7 @@ print(df4.head(40).to_string(index=False))
 #     "refi_age_mult_change"  → dRefiAgeMultiplierChange
 #     "mtg_rate_type"         → nEspPrepayMtgRateType
 # ─────────────────────────────────────────────────────────────────────────────
-smm_ft, mdr_ft = model.calc_prepay_and_default_mthread(
+smm_ft, defaults_ft = model.calc_prepay_and_default_mthread(
     agency_name      = b"FNMA",
     orig_term_months = 360,
     age_months       = 36,
@@ -313,19 +331,22 @@ smm_ft, mdr_ft = model.calc_prepay_and_default_mthread(
     },
 )
 print("\n=== Example 5: FRM with fine_tune overrides ===")
-print(f"SMM[0:40]    : {[round(v, 6) for v in smm_ft[:40]]}")
-print(f"CPR[0:40]    : {[round((1-(1-v)**12)*100, 4) for v in smm_ft[:40]]}")
-print(f"MDR[0:40]    : {[round(v, 6) for v in mdr_ft[:40]]}")
-# Compare against base (Example 1) to see the fine_tune impact
-print(f"ΔSMM vs base : {[round(smm_ft[i]-smm[i], 6) for i in range(40)]}")
-
-df5 = pd.DataFrame({
-    "month":     range(1, len(smm_ft) + 1),
-    "smm":       smm_ft,
-    "smm_base":  smm,
-    "cpr":       [(1 - (1 - v) ** 12) * 100 for v in smm_ft],
-    "mdr":       mdr_ft,
-    "delta_smm": [smm_ft[i] - smm[i] for i in range(len(smm_ft))],
-})
+df5 = pd.DataFrame(defaults_ft)
+df5.insert(0, "month",    range(1, len(smm_ft) + 1))
+df5.insert(1, "smm",      smm_ft)
+df5.insert(2, "smm_base", smm)
+df5.insert(3, "cpr",      [(1 - (1 - v) ** 12) * 100 for v in smm_ft])
+df5["delta_smm"] = [smm_ft[i] - smm[i] for i in range(len(smm_ft))]
+df5["implied_severity"] = df5.apply(
+    lambda r: r["default_loss"] / r["mdr"] if r["mdr"] > 0 else 0.0, axis=1)
+survival_ft = 1.0
+prob_alive_ft, upb_ft = [], []
+for s in smm_ft:
+    survival_ft *= (1 - s)
+    prob_alive_ft.append(survival_ft)
+    upb_ft.append(orig_bal * survival_ft)
+df5["prob_alive"] = prob_alive_ft
+df5["upb"]        = upb_ft
+print("\n=== Example 5: FRM with fine_tune overrides ===")
 print(df5.head(40).to_string(index=False))
 # df5.to_csv("example5_finetune.csv", index=False)   # uncomment to save
